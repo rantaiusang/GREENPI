@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Test Transaction - GreenProof</title>
+
+<!-- Pi SDK -->
+<script src="https://sdk.minepi.com/pi-sdk.js"></script>
+
+<style>
+body{
+    font-family: Arial;
+    background:#0f172a;
+    color:white;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    height:100vh;
+}
+
+.container{
+    text-align:center;
+    background:#1e293b;
+    padding:40px;
+    border-radius:20px;
+    box-shadow:0 10px 40px rgba(0,0,0,0.5);
+}
+
+button{
+    padding:15px 30px;
+    border:none;
+    border-radius:50px;
+    background:#7b2cbf;
+    color:white;
+    font-size:16px;
+    cursor:pointer;
+    transition:0.3s;
+}
+
+button:hover{
+    background:#5a189a;
+}
+
+#status{
+    margin-top:20px;
+    font-size:14px;
+}
+</style>
+
+</head>
+<body>
+
+<div class="container">
+<h2>Test Transaction</h2>
+<p>Klik untuk kirim 0.01 Pi</p>
+
+<button id="payBtn">Bayar 0.01 Pi</button>
+
+<div id="status"></div>
+</div>
+
+<script>
+
+/* =========================
+   CONFIG
+========================= */
+
+const APP_ID = "26949299605f32";
+let sdkReady = false;
+
+/* =========================
+   INIT SDK
+========================= */
+
+window.addEventListener("load", async () => {
+    try {
+
+        const Pi = window.Pi;
+        if(!Pi){
+            document.getElementById("status").innerText =
+            "❌ Pi SDK tidak ditemukan (Buka di Pi Browser)";
+            return;
+        }
+
+        await Pi.init({
+            version: "2.0",
+            sandbox: true
+        });
+
+        sdkReady = true;
+        document.getElementById("status").innerText =
+        "✅ SDK Ready";
+
+        console.log("Pi SDK Ready");
+
+    } catch(err){
+        console.error(err);
+        document.getElementById("status").innerText =
+        "❌ Gagal Init SDK";
+    }
+});
+
+
+/* =========================
+   PAYMENT BUTTON
+========================= */
+
+document.getElementById("payBtn").addEventListener("click", async () => {
+
+    if(!sdkReady){
+        alert("SDK belum siap");
+        return;
+    }
+
+    const status = document.getElementById("status");
+    status.innerText = "⏳ Memproses pembayaran...";
+
+    try {
+
+        const payment = await Pi.createPayment({
+            amount: 0.01,
+            memo: "Test Transaction GreenProof",
+            metadata: {}
+        });
+
+        console.log("Payment Success:", payment);
+
+        status.innerText =
+        "✅ Payment Berhasil!\n" +
+        "Payment ID: " + payment.identifier;
+
+    } catch(error){
+
+        console.error("Payment Error:", error);
+
+        status.innerText =
+        "❌ Payment Gagal:\n" + error.message;
+    }
+
+});
+
+</script>
+
+</body>
+</html>
