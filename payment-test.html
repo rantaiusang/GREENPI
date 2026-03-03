@@ -34,19 +34,16 @@ button{ width:100%; padding:14px; border:none; border-radius:50px; margin-top:15
 /* ============================================================
    INISIALISASI VARIABEL DARI CONFIG
 ============================================================ */
-// Cek apakah config berhasil dimuat
 if(!window.APP_CONFIG) {
     throw new Error("pi-config.js tidak ditemukan! Pastikan file ada di folder js/");
 }
 
 const BACKEND_URL = "https://lrzaiftdikcjehtlbwlg.supabase.co/functions/v1/handle-payment"; 
 
-// Ambil config dari file eksternal
 const APP_ID = window.APP_CONFIG.PI.APP_ID;
 const SDK_VERSION = window.APP_CONFIG.PI.SDK_VERSION;
 const IS_SANDBOX = window.APP_CONFIG.IS_SANDBOX;
 
-// Update Tampilan Judul berdasarkan Mode
 document.getElementById("app-title").innerText = IS_SANDBOX ? "Sandbox Payment" : "Production Payment";
 
 let Pi = window.Pi;
@@ -62,18 +59,20 @@ function log(msg) {
 }
 
 /* ============================================================
-   INIT SDK
+   INIT SDK + HANDLE INCOMPLETE PAYMENT (PERBAIKAN DISINI)
 ============================================================ */
 window.addEventListener("load", async () => {
     if(!Pi) return log("❌ Gunakan Pi Browser");
     try {
-        // Menggunakan variabel dari config, bukan hardcoded
         await Pi.init({ 
             version: SDK_VERSION, 
-            sandbox: IS_SANDBOX 
+            sandbox: IS_SANDBOX,
+            // --- PINDAHKAN KE SINI ---
+            onIncompletePaymentFound: (payment) => {
+                log(`⚠️ Ada pembayaran tertunda:\n${payment.identifier}\nMohon selesaikan di dompet.`);
+            }
         });
         
-        // Reset session (Opsional, agar selalu fresh saat testing)
         localStorage.removeItem("greenproof_user");
         
         log(`✅ SDK Ready (${IS_SANDBOX ? 'Sandbox' : 'Mainnet'}).\nLogin untuk mulai.`);
@@ -82,15 +81,13 @@ window.addEventListener("load", async () => {
 });
 
 /* ============================================================
-   AUTHENTICATION
+   AUTHENTICATION (BERSIH DARI PARAMETER ERROR)
 ============================================================ */
 authBtn.addEventListener("click", async () => {
     authBtn.disabled = true;
     try {
-        // Mengambil SCOPES dari config
-        authResult = await Pi.authenticate(window.APP_CONFIG.PI.SCOPES, {
-            onIncompletePaymentFound: (p) => console.log(p)
-        });
+        // HAPUS parameter object kedua, biarkan bersih
+        authResult = await Pi.authenticate(window.APP_CONFIG.PI.SCOPES);
         
         localStorage.setItem("greenproof_user", JSON.stringify({
             uid: authResult.user.uid,
@@ -123,12 +120,10 @@ payBtn.addEventListener("click", async () => {
                 log("✅ User Approved.\nMenghubungi Backend (APPROVE)...");
                 
                 try {
-                    // PANGGIL BACKEND UNTUK APPROVE
                     const res = await fetch(BACKEND_URL, {
                         method: "POST",
                         headers: { 
                             "Content-Type": "application/json",
-                            // TAMBAHKAN HEADER AUTHORIZATION SUPABASE
                             "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxyemFpZnRkaWtjamVodGxid2xnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE2NzU0MzgsImV4cCI6MjA4NzI1MTQzOH0.TWD0Te1E7ELpBBrmWapvjZKyqvWerxl90vtmyvucNFc"
                         },
                         body: JSON.stringify({ 
@@ -139,35 +134,31 @@ payBtn.addEventListener("click", async () => {
                     });
                     
                     if(!res.ok) throw new Error("Backend Approve Gagal");
-                    
                     log("✅ Backend Approve Sukses!\nMenunggu completion...");
                 } catch (err) {
                     log("❌ Error Approve: " + err.message);
                 }
             },
 
-            // 2. SAAT SIAP COMPLETION (PERBAIKAN UTAMA DISINI)
+            // 2. SAAT SIAP COMPLETION
             onReadyForServerCompletion: async (paymentId, txid) => {
                 log("🔄 Menghubungi Backend (COMPLETE)...");
                 
                 try {
-                    // PANGGIL BACKEND UNTUK COMPLETE
                     const res = await fetch(BACKEND_URL, {
                         method: "POST",
                         headers: { 
                             "Content-Type": "application/json",
-                            // TAMBAHKAN HEADER AUTHORIZATION SUPABASE
                             "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxyemFpZnRkaWtjamVodGxid2xnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE2NzU0MzgsImV4cCI6MjA4NzI1MTQzOH0.TWD0Te1E7ELpBBrmWapvjZKyqvWerxl90vtmyvucNFc"
                         },
                         body: JSON.stringify({ 
                             paymentId, 
                             action: "complete",
-                            txid   // 🔥 PERBAIKAN WAJIB: MENGIRIM txid DARI SDK KE BACKEND
+                            txid 
                         })
                     });
                     
                     if(!res.ok) throw new Error("Backend Complete Gagal");
-
                     log("🎉 TRANSAKSI SELESAI!\nTxID: " + txid);
                     payBtn.innerText = "✅ SUKSES";
                 } catch (err) {
