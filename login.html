@@ -5,34 +5,31 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Login - GreenProof Pro</title>
     
-    <!-- Fonts -->
+    <!-- Fonts & Icons -->
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=stylesheet" rel="stylesheet">
-    <!-- Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
-    <!-- Load Pi Network SDK -->
-    <script src="https://sdk.minepi.com/pi-sdk.js"></script>
+    <!-- 1. LOAD CONFIGURATION FILE (PENTING!) -->
+    <script src="pi-config.js"></script>
     
-    <!-- Memuat Supabase JS dari CDN -->
+    <!-- 2. LOAD SDKs -->
+    <script src="https://sdk.minepi.com/pi-sdk.js"></script>
     <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
     
     <style>
         /* --- CSS VARIABLES --- */
         :root {
             --primary: #10b981;
-            --primary-dark: #059669;
             --pi-purple: #7b2cbf;
             --pi-purple-dark: #5a189a;
             --bg-gradient: linear-gradient(135deg, #f0fdf4 0%, #e0e7ff 100%);
-            --glass-bg: rgba(255, 255, 255, 0.85);
-            --glass-border: rgba(255, 255, 255, 0.5);
+            --glass-bg: rgba(255, 255, 255, 0.9);
             --text-main: #1e293b;
             --text-muted: #64748b;
             --error: #ef4444;
             --success: #10b981;
         }
 
-        /* --- RESET & BASE --- */
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Plus Jakarta Sans', sans-serif; }
         
         body {
@@ -45,346 +42,219 @@
             overflow: hidden;
         }
 
-        /* --- BACKGROUND ANIMATION SHAPES --- */
+        /* Background Shapes */
         .bg-shape {
-            position: absolute;
-            border-radius: 50%;
-            filter: blur(80px);
-            z-index: 0;
-            animation: float 10s infinite ease-in-out;
+            position: absolute; border-radius: 50%; filter: blur(80px); z-index: 0; animation: float 10s infinite ease-in-out;
         }
-        .shape-1 {
-            width: 400px; height: 400px;
-            background: rgba(16, 185, 129, 0.2);
-            top: -100px; left: -100px;
-            animation-delay: 0s;
-        }
-        .shape-2 {
-            width: 300px; height: 300px;
-            background: rgba(123, 44, 191, 0.15);
-            bottom: -50px; right: -50px;
-            animation-delay: 2s;
-        }
+        .shape-1 { width: 400px; height: 400px; background: rgba(16, 185, 129, 0.2); top: -100px; left: -100px; }
+        .shape-2 { width: 300px; height: 300px; background: rgba(123, 44, 191, 0.15); bottom: -50px; right: -50px; animation-delay: 2s; }
+        @keyframes float { 0%, 100% { transform: translate(0, 0); } 50% { transform: translate(20px, 30px); } }
 
-        @keyframes float {
-            0%, 100% { transform: translate(0, 0); }
-            50% { transform: translate(20px, 30px); }
-        }
-
-        /* --- LOGIN CARD --- */
+        /* Card */
         .login-card {
-            position: relative;
-            z-index: 10;
-            background: var(--glass-bg);
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
-            border: 1px solid var(--glass-border);
-            padding: 40px;
-            border-radius: 24px;
-            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.1);
-            width: 90%;
-            max-width: 420px;
-            text-align: center;
-            transition: transform 0.3s ease;
-        }
-        
-        .login-card:hover { transform: translateY(-5px); }
-
-        .logo-icon {
-            font-size: 3rem;
-            color: var(--primary);
-            margin-bottom: 15px;
-            display: inline-block;
-            animation: pulse-green 2s infinite;
+            position: relative; z-index: 10;
+            background: var(--glass-bg); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255,255,255,0.6);
+            padding: 40px; border-radius: 24px; box-shadow: 0 20px 50px rgba(0, 0, 0, 0.1);
+            width: 90%; max-width: 400px; text-align: center;
         }
 
-        h1 { font-size: 1.8rem; color: var(--text-main); margin-bottom: 8px; font-weight: 700; }
-        p.subtitle { color: var(--text-muted); font-size: 0.95rem; margin-bottom: 30px; line-height: 1.5; }
+        .logo-icon { font-size: 3rem; color: var(--primary); margin-bottom: 15px; animation: pulse 2s infinite; }
+        @keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.1); } }
 
-        /* --- BUTTON STYLES --- */
+        h1 { font-size: 1.5rem; color: var(--text-main); margin-bottom: 10px; }
+        p.subtitle { color: var(--text-muted); font-size: 0.9rem; margin-bottom: 25px; }
+
+        /* Button */
         .btn-pi {
-            background: var(--pi-purple);
-            color: white;
-            border: none;
-            padding: 14px 24px;
-            border-radius: 12px;
-            font-size: 1rem;
-            font-weight: 600;
-            cursor: pointer;
-            width: 100%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 12px;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            position: relative;
-            overflow: hidden;
+            background: var(--pi-purple); color: white; border: none; padding: 14px;
+            border-radius: 12px; font-weight: 600; cursor: pointer; width: 100%;
+            display: flex; align-items: center; justify-content: center; gap: 10px;
+            transition: 0.3s;
         }
-
-        .btn-pi::before {
-            content: '';
-            position: absolute;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
-            transform: translateX(-100%);
-            transition: 0.5s;
-        }
-
-        .btn-pi:hover { background: var(--pi-purple-dark); box-shadow: 0 10px 20px rgba(123, 44, 191, 0.3); transform: translateY(-2px); }
-        .btn-pi:hover::before { transform: translateX(100%); }
-        .btn-pi:active { transform: translateY(0); }
-        .btn-pi.disabled { background: #cbd5e1; cursor: not-allowed; transform: none; box-shadow: none; }
+        .btn-pi:hover { background: var(--pi-purple-dark); transform: translateY(-2px); }
+        .btn-pi:disabled { background: #cbd5e1; cursor: not-allowed; transform: none; }
         
-        /* State Classes untuk JS */
-        .btn-pi.loading { background: var(--pi-purple); cursor: wait; }
-        .btn-pi.success { background: var(--success); cursor: default; }
-        .btn-pi.error { background: var(--error); cursor: default; }
-
-        /* --- LOADING SPINNER --- */
+        /* Loading Spinner */
         .spinner {
-            width: 20px; height: 20px;
-            border: 3px solid rgba(255,255,255,0.3);
-            border-radius: 50%;
-            border-top-color: white;
-            animation: spin 0.8s linear infinite;
-            display: none; /* Hidden by default */
+            width: 18px; height: 18px; border: 2px solid rgba(255,255,255,0.3);
+            border-top-color: white; border-radius: 50%; animation: spin 0.8s linear infinite; display: none;
         }
-        .btn-pi.loading .spinner { display: block; }
-        .btn-pi.loading .btn-text { opacity: 0.8; }
-        .btn-pi.loading::before { display: none; }
-
+        .loading .spinner { display: block; }
         @keyframes spin { to { transform: rotate(360deg); } }
-        @keyframes pulse-green { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.1); } }
-
-        /* --- RESPONSIVE --- */
-        @media (max-width: 480px) {
-            .login-card { padding: 30px 20px; }
-            h1 { font-size: 1.5rem; }
-        }
     </style>
 </head>
 <body>
 
-    <!-- Animated Background Elements -->
     <div class="bg-shape shape-1"></div>
     <div class="bg-shape shape-2"></div>
 
-    <!-- Login Card -->
     <div class="login-card">
         <div class="logo-icon"><i class="fas fa-leaf"></i></div>
-        <h1>Selamat Datang</h1>
-        <p class="subtitle">Bergabung dengan GreenProof.<br>Hubungkan dompet Pi Anda untuk memulai aksi hijau.</p>
+        <h1>GreenProof Login</h1>
+        <p class="subtitle">Hubungkan dompet Pi untuk melanjutkan.</p>
         
         <button id="btn-login" class="btn-pi">
-            <span class="btn-text"><i class="fab fa-pi"></i> Masuk dengan Pi Network</span>
+            <span id="btn-text"><i class="fab fa-pi"></i> Masuk dengan Pi</span>
             <div class="spinner"></div>
         </button>
         
-        <p style="margin-top: 20px; font-size: 0.75rem; color: #94a3b8;">
-            <i class="fas fa-lock"></i> Aman & Terenkripsi
-        </p>
+        <div id="status-msg" style="margin-top: 15px; font-size: 0.8rem; color: #64748b; min-height: 20px;"></div>
     </div>
 
-    <!-- LOGIC (PROFESSIONAL VERSION - FIXED) -->
     <script>
-        // --- 1. KONFIGURASI ---
-        const APP_CONFIG = {
-            SUPABASE_URL: "https://lrzaiftdikcjehtlbwlg.supabase.co",
-            // PASTIKAN KEY INI VALID DAN DIPERBOLEHKAN DI SUPABASE DASHBOARD
-            SUPABASE_ANON_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRpa2FwcXVodXNid2pjY2JxY3NiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkxNjQ1NTQsImV4cCI6MjA4NDc0MDU1NH0.X278oHDF0be7oa25484eliSukSYAYvDbJyU6ysz83zA",
-            PI: {
-                APP_ID: "26949299605f32", 
-                SCOPES: ["username", "payments"]
-            },
-            IS_SANDBOX: false 
-        };
+        // --- 1. VALIDASI CONFIG ---
+        // Pastikan pi-config.js sudah dimuat sebelum script ini jalan
+        if (!window.APP_CONFIG) {
+            alert("Error: Konfigurasi (pi-config.js) tidak ditemukan!");
+            console.error("APP_CONFIG is missing");
+        } else {
+            console.log("Config Loaded:", window.APP_CONFIG.PI.APP_ID);
+        }
 
         // --- 2. INISIALISASI SUPABASE ---
         let supabase;
         try {
-            if (APP_CONFIG.SUPABASE_URL && APP_CONFIG.SUPABASE_ANON_KEY) {
-                supabase = window.supabase.createClient(APP_CONFIG.SUPABASE_URL, APP_CONFIG.SUPABASE_ANON_KEY);
-                console.log("✅ Supabase Client Initialized");
-            }
-        } catch (e) {
-            console.error("❌ Gagal inisialisasi Supabase:", e);
+            supabase = window.supabase.createClient(window.APP_CONFIG.SUPABASE_URL, window.APP_CONFIG.SUPABASE_ANON_KEY);
+        } catch (e) { console.error("Supabase Init Failed:", e); }
+
+        // --- 3. HELPER ---
+        const btn = document.getElementById('btn-login');
+        const btnText = document.getElementById('btn-text');
+        const statusMsg = document.getElementById('status-msg');
+
+        function setStatus(msg, type = 'normal') {
+            statusMsg.innerText = msg;
+            statusMsg.style.color = type === 'error' ? 'var(--error)' : (type === 'success' ? 'var(--success)' : '#64748b');
         }
 
-        // --- 3. HELPER FUNCTION (UUID SAFE) ---
-        function generateId() {
-            if (typeof crypto !== 'undefined' && crypto.randomUUID) {
-                return crypto.randomUUID();
+        function setLoading(isLoading) {
+            if (isLoading) {
+                btn.classList.add('loading');
+                btn.disabled = true;
+                btnText.innerText = "Memproses...";
             } else {
-                return 'id_' + Date.now() + '_' + Math.floor(Math.random() * 10000);
+                btn.classList.remove('loading');
+                btn.disabled = false;
+                btnText.innerHTML = '<i class="fab fa-pi"></i> Masuk dengan Pi';
             }
         }
 
-        // --- 4. UI LOGIC ---
-        const btnLogin = document.getElementById('btn-login');
-        const btnText = document.querySelector('.btn-text');
-        const spinner = document.querySelector('.spinner');
-
-        function setButtonState(state) {
-            btnLogin.className = 'btn-pi';
-            
-            if (state === 'loading') {
-                btnLogin.classList.add('loading');
-                btnLogin.disabled = true;
-            } else if (state === 'success') {
-                btnLogin.classList.add('success');
-                btnLogin.innerHTML = `<span class="btn-text"><i class="fas fa-check"></i> Berhasil Masuk!</span>`;
-                spinner.style.display = 'none';
-            } else if (state === 'error') {
-                btnLogin.classList.add('error');
-                btnLogin.innerHTML = `<span class="btn-text"><i class="fas fa-times"></i> Gagal / Coba Lagi</span>`;
-                spinner.style.display = 'none';
-                setTimeout(() => setButtonState('idle'), 2000);
-            } else {
-                // Idle State
-                btnLogin.innerHTML = `<span class="btn-text"><i class="fab fa-pi"></i> Masuk dengan Pi Network</span><div class="spinner"></div>`;
-                spinner.style.display = 'none';
-                btnLogin.disabled = false;
-            }
-        }
-
-        // --- 5. FLAG GLOBAL ---
+        // --- 4. PI SDK INIT & AUTH ---
         let piReady = false;
-        let initPromise = null; // PERBAIKAN: Menyimpan promise init agar bisa ditunggu
+        let initPromise = null;
 
-        // --- 6. PI INIT & POLLING (SOLUSI PROFESIONAL) ---
-        
-        // Fungsi helper untuk menunggu SDK siap
-        async function waitForPiReady() {
+        async function initPi() {
             if (piReady) return true;
-            
-            // Jika init belum berjalan, jalankan
-            if (!initPromise) {
-                initPromise = (async () => {
-                    try {
-                        const Pi = window.Pi;
-                        if (!Pi) throw new Error("Pi SDK tidak dimuat");
-
-                        await Pi.init({
-                            version: "2.0",
-                            sandbox: APP_CONFIG.IS_SANDBOX
-                        });
-                        
-                        piReady = true;
-                        console.log("✅ Pi SDK Initialized via Polling");
-                        return true;
-                    } catch (err) {
-                        console.error("❌ Pi Init Failed:", err);
-                        return false;
-                    }
-                })();
+            if (!window.Pi) {
+                console.error("Pi SDK object tidak ditemukan di window");
+                return false;
             }
-            
-            // Tunggu promise selesai
+
+            if (!initPromise) {
+                initPromise = Pi.init({
+                    version: window.APP_CONFIG.PI.SDK_VERSION,
+                    sandbox: window.APP_CONFIG.IS_SANDBOX
+                }).then(() => {
+                    piReady = true;
+                    console.log("Pi Init Success");
+                    return true;
+                }).catch(err => {
+                    console.error("Pi Init Failed:", err);
+                    return false;
+                });
+            }
             return await initPromise;
         }
 
-        // Jalankan inisialisasi otomatis saat load (opsional, tapi baik untuk performa)
-        window.addEventListener("load", () => {
-            waitForPiReady().then(success => {
-                if(!success) console.warn("⚠️ Gagal memuat Pi SDK di background");
-            });
-        });
+        // Init otomatis saat load
+        window.addEventListener('load', initPi);
 
-        // --- 7. AUTHENTICATION LOGIC ---
-        btnLogin.addEventListener('click', async () => {
-            setButtonState('loading');
+        // --- 5. LOGIN HANDLER ---
+        btn.addEventListener('click', async () => {
+            setStatus("Menyiapkan koneksi aman...");
+            setLoading(true);
 
-            // PERBAIKAN: Gunakan polling menunggu SDK siap
-            // Mencegah error jika user klik terlalu cepat sebelum window.load selesai
-            const isReady = await waitForPiReady();
-            
-            if (!isReady || !window.Pi) {
-                console.error("❌ Pi SDK tidak tersedia.");
-                setButtonState('error');
-                alert("Gagal memuat koneksi Pi Network. Periksa koneksi internet Anda.");
+            // 1. Tunggu SDK Siap
+            const isReady = await initPi();
+            if (!isReady) {
+                setStatus("Gagal memuat Pi SDK. Cek koneksi internet.", "error");
+                setLoading(false);
                 return;
             }
 
-            // --- TUKANG SAPU (Cleanup) ---
-            console.log("🧹 Membersihkan cache session lama...");
-            localStorage.removeItem('greenproof_user'); 
-            localStorage.removeItem('pi_auth');
-
             try {
-                const Pi = window.Pi;
+                // 2. Authenticate
+                setStatus("Membuka jendela autentikasi Pi...");
                 
-                // Authenticate
-                const authResult = await Pi.authenticate(APP_CONFIG.PI.SCOPES, {
-                    onIncompletePaymentFound: (payment) => {
-                        console.log("Pembayaran belum selesai ditemukan:", payment);
+                const authResult = await Pi.authenticate(
+                    window.APP_CONFIG.PI.SCOPES, 
+                    {
+                        onIncompletePaymentFound: (payment) => {
+                            console.log("Incomplete payment:", payment);
+                        }
                     }
-                });
+                );
 
                 if (!authResult || !authResult.user) {
-                    throw new Error("Autentikasi dibatalkan oleh user.");
+                    throw new Error("Autentikasi dibatalkan.");
                 }
 
-                const piUser = authResult.user;
+                const user = authResult.user;
+                console.log("User Authenticated:", user);
+                setStatus("Login berhasil! Menyimpan data...", "success");
 
-                // Database Sync
-                let finalUserId = piUser.uid;
-                
+                // 3. Simpan/Update ke Supabase
                 if (supabase) {
-                    const { data: dbUser, error: selectError } = await supabase
+                    // Cek user berdasarkan wallet_address (Pi UID)
+                    const { data: existingUser, error } = await supabase
                         .from('users')
                         .select('*')
-                        .eq('wallet_address', piUser.uid)
+                        .eq('wallet_address', user.uid)
                         .maybeSingle();
 
-                    if (selectError) {
-                        console.error("Supabase Select Error:", selectError);
+                    if (error) {
+                        console.error("Supabase Error:", error);
+                        // Lanjutkan saja meski DB error (opsional)
                     }
 
-                    if (!dbUser) {
-                        console.log("🆕 User baru, membuat record...");
+                    let finalId = user.uid;
+
+                    if (!existingUser) {
+                        // Insert User Baru
                         const { data: newUser, error: insertError } = await supabase
                             .from('users')
                             .insert([{
-                                id: generateId(),
-                                username: piUser.username || 'Pioneer',
-                                wallet_address: piUser.uid,
-                                reputation: 100, 
-                                status: 'active'
+                                username: user.username || 'Pioneer',
+                                wallet_address: user.uid,
+                                created_at: new Date()
                             }])
                             .select();
-
-                        if (!insertError && newUser && newUser.length > 0) {
-                            finalUserId = newUser[0].id;
-                        } else {
-                            console.error("Gagal insert user:", insertError);
-                        }
+                            
+                        if (!insertError && newUser) finalId = newUser[0].id;
                     } else {
-                        finalUserId = dbUser.id;
-                        console.log("♻️ User ditemukan:", dbUser.username);
+                        finalId = existingUser.id;
                     }
                 }
 
-                // Simpan Sesi Baru
-                const sessionData = {
-                    id: finalUserId,
-                    pi_uid: piUser.uid,
-                    username: piUser.username || 'Pioneer',
+                // 4. Simpan Session Lokal
+                localStorage.setItem('greenproof_user', JSON.stringify({
+                    pi_uid: user.uid,
+                    username: user.username,
                     accessToken: authResult.accessToken
-                };
+                }));
 
-                localStorage.setItem('greenproof_user', JSON.stringify(sessionData));
-                console.log("💾 Session saved:", sessionData);
-
-                // Redirect
-                setButtonState('success');
+                setStatus("Redirecting...", "success");
+                
+                // 5. Redirect
                 setTimeout(() => {
-                    // Pastikan dashboard.html ada
                     window.location.href = 'dashboard.html';
-                }, 1200);
+                }, 1000);
 
             } catch (error) {
-                console.error("❌ Login Process Error:", error);
-                setButtonState('error');
+                console.error("Login Error:", error);
+                setStatus("Gagal Login: " + error.message, "error");
+                setLoading(false);
             }
         });
     </script>
