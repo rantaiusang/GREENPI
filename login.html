@@ -13,7 +13,7 @@
     <!-- Load Pi Network SDK -->
     <script src="https://sdk.minepi.com/pi-sdk.js"></script>
     
-    <!-- Memuat Supabase dari CDN (untuk versi standalone ini) -->
+    <!-- Memuat Supabase JS dari CDN -->
     <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
     
     <style>
@@ -151,7 +151,7 @@
         }
         .btn-pi.loading .spinner { display: block; }
         .btn-pi.loading .btn-text { opacity: 0.8; }
-        .btn-pi.loading::before { display: none; } /* Hide shine effect saat loading */
+        .btn-pi.loading::before { display: none; }
 
         @keyframes spin { to { transform: rotate(360deg); } }
         @keyframes pulse-green { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.1); } }
@@ -185,33 +185,33 @@
         </p>
     </div>
 
-    <!-- LOGIC (DITANAM LANGSUNG UNTUK MENGHINDARI ERROR 404) -->
+    <!-- LOGIC -->
     <script>
-        // --- 1. KONFIGURASI ---
+        // --- 1. KONFIGURASI (Sumber: pi-config.js) ---
         const APP_CONFIG = {
-            APP: {
-                // GANTI dengan App ID Anda dari Pi Network Platform
-                PI_APP_ID: "MASUKKAN_PI_APP_ID_ANDA_DISINI" 
-            }
+            SUPABASE_URL: "https://lrzaiftdikcjehtlbwlg.supabase.co",
+            SUPABASE_ANON_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRpa2FwcXVodXNid2pjY2JxY3NiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkxNjQ1NTQsImV4cCI6MjA4NDc0MDU1NH0.X278oHDF0be7oa25484eliSukSYAYvDbJyU6ysz83zA",
+            PI: {
+                APP_ID: "26949299605f32",
+                SCOPES: ["username", "payments"]
+            },
+            IS_SANDBOX: false
         };
 
-        // --- 2. KONEKSI SUPABASE ---
-        // GANTI dengan URL dan Key dari Dashboard Supabase Anda
-        const SUPABASE_URL = "MASUKKAN_SUPABASE_URL_ANDA";
-        const SUPABASE_KEY = "MASUKKAN_SUPABASE_ANON_KEY_ANDA";
-        
+        // --- 2. INISIALISASI SUPABASE ---
         let supabase;
         try {
-            if (SUPABASE_URL === "MASUKKAN_SUPABASE_URL_ANDA") {
-                console.warn("Supabase belum dikonfigurasi. Login mode simulasi (mock) akan dijalankan.");
+            if (APP_CONFIG.SUPABASE_URL && APP_CONFIG.SUPABASE_ANON_KEY) {
+                supabase = window.supabase.createClient(APP_CONFIG.SUPABASE_URL, APP_CONFIG.SUPABASE_ANON_KEY);
+                console.log("✅ Supabase Client Initialized");
             } else {
-                supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+                console.error("❌ Konfigurasi Supabase tidak lengkap.");
             }
         } catch (e) {
-            console.error("Gagal menginisialisasi Supabase:", e);
+            console.error("❌ Gagal inisialisasi Supabase:", e);
         }
 
-        // --- 3. LOGIKA TAMPILAN (UI) ---
+        // --- 3. UI LOGIC ---
         const btnLogin = document.getElementById('btn-login');
         const btnText = document.querySelector('.btn-text');
         const spinner = document.querySelector('.spinner');
@@ -228,117 +228,112 @@
                 spinner.style.display = 'none';
             } else if (state === 'error') {
                 btnLogin.classList.add('error');
-                btnLogin.innerHTML = `<span class="btn-text"><i class="fas fa-times"></i> Coba Lagi</span>`;
+                btnLogin.innerHTML = `<span class="btn-text"><i class="fas fa-times"></i> Gagal / Coba Lagi</span>`;
                 spinner.style.display = 'none';
+                // Aktifkan tombol lagi setelah 2 detik
+                setTimeout(() => setButtonState('idle'), 2000);
             } else {
-                // Kembali ke kondisi awal (Idle)
+                // Idle State
                 btnLogin.innerHTML = `<span class="btn-text"><i class="fab fa-pi"></i> Masuk dengan Pi Network</span><div class="spinner"></div>`;
                 spinner.style.display = 'none';
                 btnLogin.disabled = false;
             }
         }
 
-        // --- 4. LOGIKA OTENTIKASI ---
+        // --- 4. AUTHENTICATION LOGIC ---
         btnLogin.addEventListener('click', async () => {
             setButtonState('loading');
 
             try {
-                const appId = APP_CONFIG.APP.PI_APP_ID;
+                const appId = APP_CONFIG.PI.APP_ID;
                 
-                // MODE SIMULASI (Jika pengguna belum mengisi Konfigurasi)
-                if (appId === "MASUKKAN_PI_APP_ID_ANDA_DISINI") {
-                    console.warn("Menjalankan mode SIMULASI karena App ID belum diisi.");
-                    await new Promise(r => setTimeout(r, 1500)); // Purapura loading
-                    
-                    const mockUser = {
-                        uid: "MOCK_UID_12345",
-                        username: "PioneerSimulasi",
-                        accessToken: "mock_token_xyz"
-                    };
-                    
-                    // Simpan sesi simulasi
-                    localStorage.setItem('greenproof_user', JSON.stringify({
-                        id: "local-id",
-                        pi_uid: mockUser.uid,
-                        username: mockUser.username,
-                        accessToken: mockUser.accessToken
-                    }));
+                if (!appId) throw new Error("APP_ID tidak ditemukan di konfigurasi.");
 
-                    setButtonState('success');
-                    setTimeout(() => {
-                        // Mencoba pindah ke dashboard.html
-                        window.location.href = 'dashboard.html'; 
-                    }, 1000);
-                    return;
-                }
-
-                // OTENTIKASI PI NETWORK ASLI
+                // Cek ketersediaan Pi SDK
                 const Pi = window.Pi || window.PiNetwork;
-                if (!Pi) throw new Error("Pi Network SDK gagal dimuat.");
+                if (!Pi) throw new Error("Pi Network SDK gagal dimuat. Periksa koneksi internet.");
 
-                // Inisialisasi SDK
+                // Inisialisasi Pi SDK
                 Pi.init(appId);
 
                 // Lakukan Autentikasi
-                const authResult = await Pi.authenticate(['username', 'payments'], {
+                const authResult = await Pi.authenticate(APP_CONFIG.PI.SCOPES, {
                     onIncompletePaymentFound: (payment) => {
-                        console.log("Pembayaran tidak lengkap ditemukan:", payment);
+                        console.log("Pembayaran belum selesai ditemukan:", payment);
                     }
                 });
 
-                if (!authResult.user) throw new Error("Autentikasi dibatalkan oleh pengguna.");
+                if (!authResult || !authResult.user) {
+                    throw new Error("Autentikasi dibatalkan oleh pengguna atau gagal.");
+                }
 
                 const piUser = authResult.user;
-                console.log("Pengguna Pi:", piUser);
+                console.log("✅ Pi User Authenticated:", piUser);
 
-                // --- SINKRONISASI DATABASE (Opsional: Jalan hanya jika Supabase dikonfigurasi) ---
-                let finalUserId = piUser.uid; // Default pakai Pi UID
+                // --- DATABASE SYNC (Supabase) ---
+                let finalUserId = piUser.uid; // Default ID
                 
                 if (supabase) {
-                    const { data: dbUser, error } = await supabase
+                    // 1. Cek apakah user sudah ada
+                    const { data: dbUser, error: selectError } = await supabase
                         .from('users')
                         .select('*')
                         .eq('wallet_address', piUser.uid)
                         .maybeSingle();
 
-                    if (!dbUser && !error) {
-                        // Daftarkan pengguna baru
+                    if (selectError) {
+                        console.warn("Warning saat cek user:", selectError.message);
+                    }
+
+                    if (!dbUser) {
+                        // 2. Jika user belum ada, daftarkan (INSERT)
+                        console.log("⚠️ User baru terdeteksi. Mendaftarkan ke database...");
                         const { data: newUser, error: insertError } = await supabase
                             .from('users')
                             .insert([{
                                 id: crypto.randomUUID(),
                                 username: piUser.username || 'Pioneer',
                                 wallet_address: piUser.uid,
-                                reputation: 100,
+                                reputation: 100, // Nilai awal
                                 status: 'active'
                             }])
                             .select();
+
+                        if (insertError) {
+                            console.error("❌ Gagal mendaftarkan user baru:", insertError);
+                            throw new Error("Gagal menyimpan data ke database.");
+                        }
                         
-                        if (newUser && newUser.length > 0) finalUserId = newUser[0].id;
-                    } else if (dbUser) {
+                        if (newUser && newUser.length > 0) {
+                            finalUserId = newUser[0].id;
+                        }
+                    } else {
+                        // 3. User sudah ada, gunakan ID dari DB
                         finalUserId = dbUser.id;
+                        console.log("✅ User ditemukan di DB:", dbUser.username);
                     }
                 }
 
-                // Simpan Sesi
-                localStorage.setItem('greenproof_user', JSON.stringify({
+                // --- SIMPAN SESI KE LOCALSTORAGE ---
+                const sessionData = {
                     id: finalUserId,
                     pi_uid: piUser.uid,
                     username: piUser.username || 'Pioneer',
                     accessToken: authResult.accessToken
-                }));
+                };
 
+                localStorage.setItem('greenproof_user', JSON.stringify(sessionData));
+                console.log("✅ Sesi tersimpan:", sessionData);
+
+                // --- SUCCESS REDIRECT ---
                 setButtonState('success');
-                setTimeout(() => window.location.href = 'dashboard.html', 1200);
+                setTimeout(() => {
+                    window.location.href = 'dashboard.html';
+                }, 1200);
 
             } catch (error) {
-                console.error("Error Login:", error);
+                console.error("❌ Login Error:", error);
                 setButtonState('error');
-                
-                // Mengaktifkan ulang tombol setelah error
-                setTimeout(() => {
-                    setButtonState('idle');
-                }, 2000);
             }
         });
     </script>
