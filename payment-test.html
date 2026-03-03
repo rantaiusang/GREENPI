@@ -126,11 +126,14 @@ payBtn.addEventListener("click", async () => {
                     // PANGGIL BACKEND UNTUK APPROVE
                     const res = await fetch(BACKEND_URL, {
                         method: "POST",
-                        headers: { "Content-Type": "application/json" },
+                        headers: { 
+                            "Content-Type": "application/json",
+                            // TAMBAHKAN HEADER AUTHORIZATION SUPABASE
+                            "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxyemFpZnRkaWtjamVodGxid2xnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE2NzU0MzgsImV4cCI6MjA4NzI1MTQzOH0.TWD0Te1E7ELpBBrmWapvjZKyqvWerxl90vtmyvucNFc"
+                        },
                         body: JSON.stringify({ 
                             paymentId, 
                             action: "approve",
-                            // Opsional: Kirim data tambahan ke backend jika perlu
                             metadata: { userId: authResult.user.uid }
                         })
                     });
@@ -143,7 +146,7 @@ payBtn.addEventListener("click", async () => {
                 }
             },
 
-            // 2. SAAT SIAP COMPLETION
+            // 2. SAAT SIAP COMPLETION (PERBAIKAN UTAMA DISINI)
             onReadyForServerCompletion: async (paymentId, txid) => {
                 log("🔄 Menghubungi Backend (COMPLETE)...");
                 
@@ -151,8 +154,16 @@ payBtn.addEventListener("click", async () => {
                     // PANGGIL BACKEND UNTUK COMPLETE
                     const res = await fetch(BACKEND_URL, {
                         method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ paymentId, action: "complete" })
+                        headers: { 
+                            "Content-Type": "application/json",
+                            // TAMBAHKAN HEADER AUTHORIZATION SUPABASE
+                            "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxyemFpZnRkaWtjamVodGxid2xnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE2NzU0MzgsImV4cCI6MjA4NzI1MTQzOH0.TWD0Te1E7ELpBBrmWapvjZKyqvWerxl90vtmyvucNFc"
+                        },
+                        body: JSON.stringify({ 
+                            paymentId, 
+                            action: "complete",
+                            txid   // 🔥 PERBAIKAN WAJIB: MENGIRIM txid DARI SDK KE BACKEND
+                        })
                     });
                     
                     if(!res.ok) throw new Error("Backend Complete Gagal");
@@ -178,7 +189,6 @@ payBtn.addEventListener("click", async () => {
         const payment = await Pi.createPayment({
             amount: 0.01,
             memo: "Full Stack Payment Test",
-            // METADATA LENGKAP
             metadata: { 
                 userId: authResult.user.uid,
                 username: authResult.user.username,
