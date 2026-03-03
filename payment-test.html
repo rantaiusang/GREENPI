@@ -22,7 +22,6 @@ button{ width:100%; padding:15px; border:none; border-radius:10px; margin-top:10
 <button id="authBtn">1. Login (Wajib Baru)</button>
 <button id="payBtn" disabled>2. Bayar 0.01 Pi</button>
 </div>
-
 <script>
 const APP_ID = "26949299605f32";
 let Pi = window.Pi;
@@ -32,89 +31,106 @@ const statusDiv = document.getElementById("status");
 const authBtn = document.getElementById("authBtn");
 const payBtn = document.getElementById("payBtn");
 
-function log(msg) { statusDiv.innerText = msg; console.log(msg); }
+function log(msg) { 
+    statusDiv.innerText = msg; 
+    console.log(msg); 
+}
 
 window.addEventListener("load", async () => {
-    if(!Pi) return log("Buka di Pi Browser!");
+    if(!Pi) return log("❌ Buka di Pi Browser!");
     
     try {
         await Pi.init({ version: "2.0", sandbox: false });
         
-        // --- LOGIKA PENTING: RESET OTOMATIS ---
-        // Kita hapus paksa data lama agar tidak ada error "scope" sisa
-        console.log("Menghapus session lama...");
+        // Reset session lama
         localStorage.removeItem("greenproof_user");
-        log("Session direset. Silakan Login.");
-        // -------------------------------------
-
+        log("Session di-reset. Silakan Login Ulang.");
         authBtn.disabled = false;
 
-    } catch (e) { log("Init Error: " + e.message); }
+    } catch (e) { 
+        log("❌ Init Error: " + e.message); 
+    }
 });
 
 authBtn.addEventListener("click", async () => {
     authBtn.disabled = true;
-    authBtn.innerText = "Minta Izin Payments...";
-    log("Membuka popup auth...");
+    authBtn.innerText = "Meminta Izin...";
+    log("🔄 Membuka popup Auth...");
 
     try {
-        // PASTIKAN SCOPE INI: ["username", "payments"]
+        // PASTIKAN KLIK APPROVE DI POPUP
         authResult = await Pi.authenticate(["username", "payments"], {
             onIncompletePaymentFound: (p) => console.log("Pending:", p)
         });
 
-        // Simpan session BARU
         localStorage.setItem("greenproof_user", JSON.stringify({
             uid: authResult.user.uid,
             username: authResult.user.username,
             token: authResult.accessToken
         }));
 
-        log("✅ Login Sukses!\nUser: " + authResult.user.username + "\nScope: PAYMENTS OK");
+        log("✅ Login SUKSES!\nUser: " + authResult.user.username);
         payBtn.disabled = false;
+        payBtn.innerText = "💎 Bayar 0.01 Pi";
         authBtn.innerText = "✅ Siap";
 
     } catch (e) {
-        log("Auth Gagal: " + e.message);
+        log("❌ Auth Gagal: " + e.message);
         authBtn.disabled = false;
+        authBtn.innerText = "Coba Lagi";
     }
 });
 
 payBtn.addEventListener("click", async () => {
-    if(!authResult) return log("Login dulu!");
+    if(!authResult) {
+        log("❌ Belum login.");
+        return; 
+    }
     
     payBtn.disabled = true;
-    payBtn.innerText = "Proses Bayar...";
-    log("Create Payment...");
+    payBtn.innerText = "⏳ Proses Bayar...";
+    log("🔄 Membuat Payment...");
 
     try {
+        // --- PERBAIKAN DI SINI (Struktur Kurung Kurawal) ---
         const payment = await Pi.createPayment({
             amount: 0.01,
-            memo: "Clean Payment Test",
+            memo: "Clean Payment Test Fixed",
             metadata: { userId: authResult.user.uid }
         }, {
-            onReadyForServerApproval: (pid) => log("Approve: " + pid),
-            onCompleted: (pid, txid) => {
-                log("SUKSES! TxID: " + txid);
-                payBtn.innerText = "✅ Selesai";
+            // Callback 1
+            onReadyForServerApproval: (paymentId) => {
+                log("✅ Payment ID: " + paymentId + "\nSilakan Approve di Popup!");
+                payBtn.innerText = "Tunggu Approve...";
             },
-            onCancelled: (pid) => {
-                log("Dibatalkan.");
+            // Callback 2
+            onCompleted: (paymentId, txid) => {
+                log("🎉 PEMBAYARAN SUKSES!\nTxID: " + txid);
+                payBtn.innerText = "✅ Selesai";
+                payBtn.style.background = "#059669";
+            },
+            // Callback 3
+            onCancelled: (paymentId) => {
+                log("⚠️ Dibatalkan User.");
                 payBtn.disabled = false;
                 payBtn.innerText = "Coba Lagi";
             },
-            onError: (err, p) => {
-                log("Error: " + err.message);
+            // Callback 4
+            onError: (error, payment) => {
+                log("❌ Error Payment:\n" + error.message);
                 payBtn.disabled = false;
                 payBtn.innerText = "Coba Lagi";
             }
-        });
+        }); // <-- PENUTUP OBJECT YANG HILANG SEBELUMNYA
 
     } catch (error) {
-        log("Gagal: " + error.message);
+        console.error(error);
+        log("❌ Gagal Create Payment:\n" + error.message);
         payBtn.disabled = false;
+        payBtn.innerText = "Coba Lagi";
     }
 });
 </script>
+
 </body>
 </html>
