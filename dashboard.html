@@ -6,7 +6,7 @@
     <title>Dashboard - GreenProof</title>
     
     <!-- Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=stylesheet" rel="stylesheet">
     <!-- Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
@@ -53,7 +53,6 @@
             box-shadow: var(--shadow-sm);
         }
         
-        /* LOGO: DIV STATIS (TIDAK ADA LINK/HREF) */
         .nav-brand { 
             font-weight: 800; 
             font-size: 1.25rem; 
@@ -65,7 +64,6 @@
             user-select: none;
         }
 
-        /* USER AREA (Kanan Atas): Avatar & Logout */
         .nav-user { display: flex; align-items: center; gap: 15px; }
         
         .user-avatar {
@@ -79,7 +77,6 @@
             cursor: pointer;
         }
         
-        /* Tombol Logout (HANYA INI YG LOGOUT) */
         .logout-btn { 
             background: #f1f5f9; 
             border: none; 
@@ -97,7 +94,6 @@
         }
         .logout-btn:hover { background: #fee2e2; color: #ef4444; }
 
-        /* --- CONTAINER --- */
         .container { padding: 20px; max-width: 600px; margin: 0 auto; }
 
         /* --- HEADER SECTION --- */
@@ -114,7 +110,7 @@
         .stats-container::-webkit-scrollbar { display: none; }
 
         .stat-card {
-            background: var(--surface); min-width: 140px; padding: 20px;
+            background: var(--surface); min-width: 130px; padding: 20px;
             border-radius: var(--radius); box-shadow: var(--shadow-sm);
             flex: 1; position: relative; overflow: hidden;
             transition: transform 0.2s;
@@ -185,29 +181,28 @@
             position: fixed; bottom: 25px; right: 25px;
             background: var(--primary); color: white;
             width: 60px; height: 60px; border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.5rem;
-            box-shadow: var(--shadow-lg);
-            border: none;
-            cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.5rem; box-shadow: var(--shadow-lg);
+            border: none; cursor: pointer;
             transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
             z-index: 900; text-decoration: none;
         }
         .fab:hover { transform: scale(1.1) rotate(90deg); background: var(--primary-dark); }
         .fab:active { transform: scale(0.9); }
         
-        /* Teks di dalam FAB (Opsional, jika ingin ada teks di samping tombol plus) */
-        .fab-text {
-            font-size: 0.8rem; font-weight: 600; margin-left: 5px;
-        }
-
         /* --- EMPTY STATE --- */
         .empty-state {
             text-align: center; padding: 40px 20px; color: var(--text-muted);
         }
         .empty-icon { font-size: 3rem; margin-bottom: 15px; opacity: 0.3; }
+
+        /* --- LOADING SKELETON --- */
+        .skeleton {
+            background: #e2e8f0;
+            border-radius: 4px;
+            animation: pulse 1.5s infinite;
+        }
+        @keyframes pulse { 0% { opacity: 0.6; } 50% { opacity: 1; } 100% { opacity: 0.6; } }
 
         @media (min-width: 768px) {
             .container { max-width: 800px; }
@@ -220,17 +215,12 @@
 
     <!-- Navbar -->
     <nav>
-        <!-- KIRI: Logo (DIV STATIS) -->
         <div class="nav-brand">
             <i class="fas fa-leaf"></i> Green Pi
         </div>
-
-        <!-- KANAN: User Area (Avatar + Tombol Logout) -->
         <div class="nav-user">
-            <!-- Avatar User -->
             <div class="user-avatar" id="user-initial" title="Profil Saya">U</div>
-            
-            <!-- Tombol Logout (FUNGSI LOGOUT -> INDEX) -->
+            <!-- Tombol Logout memanggil fungsi global handleLogout -->
             <button class="logout-btn" onclick="handleLogout()" title="Keluar">
                 <i class="fas fa-sign-out-alt"></i>
             </button>
@@ -240,8 +230,8 @@
     <div class="container">
         <!-- Header -->
         <div class="header-welcome">
-            <h1 id="welcome-text">Halo, User!</h1>
-            <p>Mari lanjutkan misi penghijauanmu hari ini.</p>
+            <h1 id="welcome-text">Memuat data...</h1>
+            <p id="reputation-text">Memuat reputasi...</p>
         </div>
 
         <!-- Stats Cards -->
@@ -251,19 +241,19 @@
                 <div class="stat-val" id="total-trees">0</div>
                 <div class="stat-label">Total Pohon</div>
             </div>
+            
             <div class="stat-card credit">
                 <i class="fas fa-coins stat-icon"></i>
                 <div class="stat-val" id="total-credit">0.00</div>
                 <div class="stat-label">Eco Credits</div>
             </div>
+            
             <div class="stat-card">
                 <i class="fas fa-star stat-icon" style="color: var(--accent);"></i>
-                <div class="stat-val" style="font-size: 1.5rem;">100</div>
+                <div class="stat-val" id="user-reputation">0</div>
                 <div class="stat-label">Reputasi</div>
             </div>
         </div>
-
-        <!-- EXPLORE CARD DIHAPUS SESUAI PERMINTAAN -->
 
         <!-- List Pohon -->
         <div class="section-title">
@@ -271,40 +261,40 @@
             <a href="detail.html">Lihat Detail <i class="fas fa-chevron-right"></i></a>
         </div>
         <div id="tree-list" class="tree-list">
-            <!-- Data akan diisi oleh JS -->
             <div class="empty-state">
                 <div class="empty-icon"><i class="fas fa-seedling"></i></div>
-                <p>Belum ada pohon yang ditanam.</p>
-                <p style="font-size: 0.8rem; margin-top:5px;">Tekan tombol + untuk mulai!</p>
+                <p>Memuat data pohon...</p>
             </div>
         </div>
     </div>
 
-    <!-- Floating Action Button (FAB) -->
-    <!-- UPDATE: Link ke plant.html -->
+    <!-- Floating Action Button -->
     <a href="plant.html" class="fab">
         <i class="fas fa-plus"></i>
     </a>
 
     <!-- LOGIC -->
+    <script>
+        // --- FUNGSI LOGOUT GLOBAL (DIPINDAHKAN KE SINI) ---
+        // Ini agar bisa dipanggil oleh onclick HTML
+        function handleLogout() {
+            // 1. Hapus session lokal
+            localStorage.removeItem('user_session');
+            
+            // 2. (Opsional) Coba panggil logout backend jika file auth.js ada
+            // Kita pakai dynamic import agar tidak error jika file tidak ada
+            import('./js/auth.js').then(m => {
+                if(m.logout) m.logout();
+            }).catch(e => console.log("Auth module not found or error", e));
+
+            // 3. Redirect ke INDEX.HTML (Sesuai Permintaan)
+            window.location.href = 'index.html';
+        }
+    </script>
+
     <script type="module">
         import { supabase } from './js/supabase.js';
         import { getSession as getAuthSession } from './js/auth.js';
-
-        // Fungsi Logout Langsung Redirect ke Index HTML
-        function handleLogout() {
-            // 1. Hapus sesi lokal agar user dianggap logout
-            localStorage.removeItem('user_session');
-            
-            // 2. Coba panggil logout backend (opsional, tidak ditunggu hasilnya agar cepat)
-            import('./js/auth.js').then(m => m.logout()).catch(e => console.log(e));
-
-            // 3. PAKSA redirect ke index.html
-            window.location.href = 'index.html';
-        }
-
-        // Expose fungsi ke window agar bisa dipanggil onclick
-        window.handleLogout = handleLogout;
 
         function animateValue(obj, start, end, duration) {
             let startTimestamp = null;
@@ -327,11 +317,34 @@
 
         async function loadDashboard() {
             const user = getAuthSession();
-            if (!user) window.location.href = 'login.html';
+            if (!user) {
+                window.location.href = 'index.html'; // Jika belum login, lempar ke index
+                return;
+            }
 
-            document.getElementById('welcome-text').innerText = `Halo, ${user.username || 'Pioneer'}!`;
-            document.getElementById('user-initial').innerText = (user.username || 'U').charAt(0).toUpperCase();
+            // 1. Tampilkan Username & Inisial Avatar
+            const username = user.username || 'Pioneer';
+            document.getElementById('welcome-text').innerText = `Halo, ${username}!`;
+            document.getElementById('user-initial').innerText = username.charAt(0).toUpperCase();
 
+            // 2. AMBIL DATA USER DARI DATABASE (Untuk Reputasi)
+            const { data: userData, error: userError } = await supabase
+                .from('users')
+                .select('username, reputation')
+                .eq('wallet_address', user.uid)
+                .single();
+
+            if (userData) {
+                const reputation = userData.reputation || 0;
+                document.getElementById('user-reputation').innerText = reputation;
+                document.getElementById('reputation-text').innerText = 
+                    `Reputasi: ${reputation} • Level ${Math.floor(reputation / 10) + 1}`;
+            } else {
+                console.log("User data not found in DB, using defaults");
+                document.getElementById('user-reputation').innerText = "0";
+            }
+
+            // 3. AMBIL RIWAYAT POHON & HITUNG KREDIT
             const { data: trees, error } = await supabase
                 .from('trees')
                 .select('*')
@@ -345,7 +358,7 @@
 
             const totalTrees = trees.length;
             const verifiedTrees = trees.filter(t => t.status === 'verified');
-            const totalCredit = verifiedTrees.reduce((acc, curr) => acc + (curr.credit || 0), 0);
+            const totalCredit = verifiedTrees.reduce((acc, curr) => acc + (parseFloat(curr.credit) || 0), 0);
 
             animateValue(document.getElementById('total-trees'), 0, totalTrees, 1500);
             animateValue(document.getElementById('total-credit'), 0, totalCredit, 1500);
