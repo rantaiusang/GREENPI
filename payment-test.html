@@ -10,13 +10,14 @@
 
 <style>
 body{
-    font-family: Arial;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     background:#0f172a;
     color:white;
     display:flex;
     justify-content:center;
     align-items:center;
     height:100vh;
+    margin:0;
 }
 
 .container{
@@ -25,7 +26,12 @@ body{
     padding:40px;
     border-radius:20px;
     box-shadow:0 10px 40px rgba(0,0,0,0.5);
+    width: 90%;
+    max-width: 400px;
 }
+
+h2 { margin-top: 0; color: #a78bfa; }
+p { color: #94a3b8; }
 
 button{
     padding:15px 30px;
@@ -34,18 +40,52 @@ button{
     background:#7b2cbf;
     color:white;
     font-size:16px;
+    font-weight: bold;
     cursor:pointer;
     transition:0.3s;
+    width: 100%;
 }
 
 button:hover{
     background:#5a189a;
+    transform: translateY(-2px);
+}
+
+button:disabled {
+    background:#475569;
+    cursor: not-allowed;
+    transform: none;
 }
 
 #status{
     margin-top:20px;
     font-size:14px;
     white-space:pre-line;
+    background: #334155;
+    padding: 15px;
+    border-radius: 10px;
+    min-height: 80px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Indikator Loading */
+.loader {
+    border: 3px solid rgba(255,255,255,0.3);
+    border-radius: 50%;
+    border-top: 3px solid #fff;
+    width: 20px;
+    height: 20px;
+    animation: spin 1s linear infinite;
+    display: inline-block;
+    vertical-align: middle;
+    margin-right: 10px;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
 }
 </style>
 
@@ -54,112 +94,158 @@ button:hover{
 
 <div class="container">
 <h2>Test Transaction</h2>
-<p>Klik untuk kirim 0.01 Pi</p>
+p>Uji coba pembayaran 0.01 Pi</p>
 
-<button id="payBtn">Bayar 0.01 Pi</button>
+<button id="payBtn" disabled>
+    <span id="btnText">Memuat SDK...</span>
+</button>
 
-<div id="status"></div>
+<div id="status">Menunggu inisialisasi...</div>
 </div>
 
 <script>
 
 /* =========================
-   CONFIG
+   KONFIGURASI
 ========================= */
-
 const APP_ID = "26949299605f32";
 let sdkReady = false;
-let userAuthenticated = false;
+let currentUser = null;
+let authResult = null; // Menyimpan hasil auth lengkap
 
 /* =========================
-   INIT SDK + LOGIN (WAJIB ADA PAYMENTS SCOPE)
+   UTILITY FUNCTIONS
+========================= */
+const statusDiv = document.getElementById("status");
+const payBtn = document.getElementById("payBtn");
+const btnText = document.getElementById("btnText");
+
+function updateStatus(msg, type = 'normal') {
+    statusDiv.innerText = msg;
+    if(type === 'error') statusDiv.style.border = "1px solid #ef4444";
+    else if(type === 'success') statusDiv.style.border = "1px solid #10b981";
+    else statusDiv.style.border = "none";
+}
+
+function setButtonLoading(isLoading, text) {
+    if (isLoading) {
+        payBtn.disabled = true;
+        btnText.innerHTML = `<div class="loader"></div> ${text}`;
+    } else {
+        payBtn.disabled = false;
+        btnText.innerText = text;
+    }
+}
+
+/* =========================
+   INIT & AUTH FLOW (PERBAIKAN)
 ========================= */
 
 window.addEventListener("load", async () => {
+    
+    const Pi = window.Pi;
 
-    const status = document.getElementById("status");
+    // 1. Cek Availability SDK
+    if(!Pi){
+        updateStatus("❌ Pi SDK tidak ditemukan.\nHarap buka melalui Pi Browser!", "error");
+        btnText.innerText = "SDK Error";
+        return;
+    }
 
     try {
-
-        const Pi = window.Pi;
-        if(!Pi){
-            status.innerText =
-            "❌ Pi SDK tidak ditemukan.\nBuka di Pi Browser.";
-            return;
-        }
-
-        // INIT SDK dengan appId
+        // 2. Inisialisasi SDK
+        // PENTING: Sesuaikan sandbox dengan config Anda. 
+        // Jika di Vercel (Production), sebaiknya false. Jika testing di Localhost, true.
+        // Di sini saya set false agar lebih stabil untuk domain live.
         await Pi.init({
             version: "2.0",
-            sandbox: true
+            sandbox: false 
         });
 
-        // AUTH DENGAN PAYMENTS SCOPE
-        const auth = await Pi.authenticate(
-            ["username", "payments"],
+        updateStatus("SDK Siap. Melakukan Autentikasi...", "normal");
+
+        // 3. Authenticate dengan Scope yang benar
+        // Ini akan memunculkan popup izin di Pi Browser
+        authResult = await Pi.authenticate(
+            ["username", "payments"], // Scope WAJIB payments untuk transaksi
             {
                 onIncompletePaymentFound: (payment) => {
-                    console.log("Incomplete Payment:", payment);
+                    console.log("Ditemukan pembayaran tertunda:", payment);
+                    updateStatus("⚠️ Ada pembayaran tertunda. Silakan selesaikan di dompet Pi.", "error");
                 }
             }
         );
 
-        console.log("Auth Success:", auth);
+        // 4. Validasi Hasil Auth
+        if (authResult && authResult.user) {
+            sdkReady = true;
+            currentUser = authResult.user;
+            
+            updateStatus(`✅ Login Berhasil!\n\nHalo, @${currentUser.username}\nUID: ${currentUser.uid}`, "success");
+            setButtonLoading(false, "Bayar 0.01 Pi");
+            
+            console.log("Auth Result Object:", authResult);
+        } else {
+            throw new Error("Gagal mendapatkan data user dari autentikasi.");
+        }
 
-        sdkReady = true;
-        userAuthenticated = true;
-
-        status.innerText =
-        "✅ SDK Ready\n✅ Login Sukses\nUser: " +
-        auth.user.username;
-
-    } catch(err){
-        console.error(err);
-        status.innerText =
-        "❌ Init / Auth Gagal:\n" + err.message;
+    } catch (err) {
+        console.error("Init/Auth Error:", err);
+        updateStatus(`❌ Gagal Login:\n${err.message}\n\n(Cek Console untuk detail)`, "error");
+        btnText.innerText = "Login Gagal";
     }
-
 });
 
 
 /* =========================
-   PAYMENT BUTTON
+   PAYMENT LOGIC
 ========================= */
 
-document.getElementById("payBtn").addEventListener("click", async () => {
+payBtn.addEventListener("click", async () => {
 
-    const status = document.getElementById("status");
-
-    if(!sdkReady || !userAuthenticated){
-        alert("Login belum siap");
+    if (!sdkReady) {
+        alert("SDK belum siap. Tunggu sebentar...");
         return;
     }
 
-    status.innerText = "⏳ Memproses pembayaran...";
+    // Cek ulang apakah user benar-benar terautentikasi
+    if (!currentUser) {
+        alert("Sesi login hilang. Silakan refresh halaman.");
+        return;
+    }
+
+    setButtonLoading(true, "Memproses...");
+    updateStatus("Membuka jendela pembayaran Pi...", "normal");
 
     try {
+        const Pi = window.Pi;
 
+        // Membuat Payment
         const payment = await Pi.createPayment({
             amount: 0.01,
-            memo: "Test Transaction GreenProof",
+            memo: "Test Transaksi GreenProof",
             metadata: {
-                test: true,
+                userId: currentUser.uid,
+                username: currentUser.username,
                 timestamp: Date.now()
             }
         });
 
-        console.log("Payment Success:", payment);
+        console.log("Payment Response:", payment);
+        updateStatus(`✅ Pembayaran Terkirim!\nTxID: ${payment.identifier}\nStatus: ${payment.status}`, "success");
+        setButtonLoading(false, "Bayar Lagi");
 
-        status.innerText =
-        "✅ Payment Berhasil!\n\n" +
-        "Payment ID:\n" + payment.identifier;
-
-    } catch(error){
-
+    } catch (error) {
         console.error("Payment Error:", error);
+        let errorMsg = error.message;
+        
+        // Pesan error spesifik sering muncul
+        if(errorMsg.includes("User cancelled")) {
+            errorMsg = "Pembayaran dibatalkan oleh user.";
+        }
 
-        status.innerText =
-        "❌ Payment Gagal:\n" + error.message;
+        updateStatus(`❌ Payment Gagal:\n${errorMsg}`, "error");
+        setButtonLoading(false, "Coba Lagi");
     }
 
 });
