@@ -46,7 +46,7 @@ const IS_SANDBOX = window.APP_CONFIG.IS_SANDBOX;
 
 document.getElementById("app-title").innerText = IS_SANDBOX ? "Sandbox Payment" : "Production Payment";
 
-let Pi = window.Pi;
+
 let authResult = null;
 
 const statusDiv = document.getElementById("status");
@@ -62,7 +62,20 @@ function log(msg) {
    INIT SDK
 ============================================================ */
 window.addEventListener("load", async () => {
-    if(!Pi) return log("❌ Gunakan Pi Browser");
+
+    let retry = 0;
+
+    while(!window.Pi && retry < 10) {
+        await new Promise(r => setTimeout(r, 300));
+        retry++;
+    }
+
+    if(!window.Pi) {
+        return log("❌ SDK tidak terdeteksi. Buka dari Pi Browser.");
+    }
+
+    const Pi = window.Pi;
+
     try {
         await Pi.init({ 
             version: SDK_VERSION, 
