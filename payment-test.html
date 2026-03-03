@@ -3,48 +3,75 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Force Clean Payment</title>
-<script src="https://sdk.minepi.com/pi-sdk.js"></script>
+<title>Pi Payment - Hard Fix</title>
+
+<!-- MEMAKSA VERSI TERTENTU UNTUK MENCEGAH CACHE LAMA -->
+<script src="https://sdk.minepi.com/pi-sdk.js?v=2.0"></script>
+
 <style>
-body{ font-family:sans-serif; background:#0f172a; color:white; display:flex; justify-content:center; align-items:center; height:100vh; margin:0; }
-.container{ text-align:center; background:#1e293b; padding:30px; border-radius:15px; width:90%; max-width:350px; }
-button{ width:100%; padding:15px; border:none; border-radius:10px; margin-top:10px; font-weight:bold; cursor:pointer; color:white; }
+body{ font-family: -apple-system, sans-serif; background:#0f172a; color:white; display:flex; justify-content:center; align-items:center; min-height:100vh; margin:0; }
+.container{ text-align:center; background:#1e293b; padding:30px; border-radius:20px; width:90%; max-width:380px; box-shadow:0 10px 30px rgba(0,0,0,0.5); }
+h2{ margin:0 0 10px 0; color:#a78bfa; }
+button{ width:100%; padding:14px; border:none; border-radius:50px; margin-top:15px; font-size:16px; font-weight:bold; cursor:pointer; color:white; transition:0.2s; }
 #authBtn{ background:#7b2cbf; }
 #payBtn{ background:#10b981; }
-#status{ margin-top:15px; font-size:12px; background:#000; padding:10px; border-radius:5px; min-height:60px; white-space:pre-line; }
+button:hover{ opacity:0.9; }
+button:disabled{ background:#475569; cursor:not-allowed; opacity:0.6; }
+
+#status{
+    margin-top:20px;
+    font-size:13px;
+    background:#000;
+    color:#10b981;
+    padding:12px;
+    border-radius:8px;
+    border:1px solid #334155;
+    min-height:60px;
+    white-space:pre-line;
+    font-family:monospace;
+    text-align:left;
+}
 </style>
 </head>
 <body>
 
 <div class="container">
-<h2>Clean Payment Test</h2>
-<div id="status">Inisialisasi...</div>
-<button id="authBtn">1. Login (Wajib Baru)</button>
+<h2>Final Payment Test</h2>
+<p>Versi Hard-Fix (No Cache)</p>
+
+<button id="authBtn" disabled>1. Login Dulu</button>
 <button id="payBtn" disabled>2. Bayar 0.01 Pi</button>
+
+<div id="status">Memuat SDK...</div>
 </div>
+
 <script>
+// --- KONFIGURASI ---
 const APP_ID = "26949299605f32";
 let Pi = window.Pi;
 let authResult = null;
 
+// --- DOM ELEMENTS ---
 const statusDiv = document.getElementById("status");
 const authBtn = document.getElementById("authBtn");
 const payBtn = document.getElementById("payBtn");
 
-function log(msg) { 
-    statusDiv.innerText = msg; 
-    console.log(msg); 
+function log(msg) {
+    console.log(msg);
+    statusDiv.innerText = msg;
 }
 
+// --- INIT ---
 window.addEventListener("load", async () => {
-    if(!Pi) return log("❌ Buka di Pi Browser!");
+    if(!Pi) return log("❌ SDK Tidak Ditemukan!\nBuka di Pi Browser.");
     
     try {
         await Pi.init({ version: "2.0", sandbox: false });
         
-        // Reset session lama
+        // Bersihkan session lama
         localStorage.removeItem("greenproof_user");
-        log("Session di-reset. Silakan Login Ulang.");
+        
+        log("✅ SDK Ready (v2.0)\nSession dibersihkan.\nSilakan Login.");
         authBtn.disabled = false;
 
     } catch (e) { 
@@ -52,85 +79,92 @@ window.addEventListener("load", async () => {
     }
 });
 
+// --- AUTH ---
 authBtn.addEventListener("click", async () => {
     authBtn.disabled = true;
-    authBtn.innerText = "Meminta Izin...";
-    log("🔄 Membuka popup Auth...");
+    authBtn.innerText = "Minta Izin...";
+    log("🔄 Meminta Scope Payments...");
 
     try {
-        // PASTIKAN KLIK APPROVE DI POPUP
+        // PASTIKAN ANDA MENGKLIK "APPROVE" DI POPUP YANG MUNCUL
         authResult = await Pi.authenticate(["username", "payments"], {
-            onIncompletePaymentFound: (p) => console.log("Pending:", p)
+            onIncompletePaymentFound: (payment) => {
+                log("⚠️ Ada pembayaran tertunda:\n" + payment.identifier);
+            }
         });
 
+        // Simpan session
         localStorage.setItem("greenproof_user", JSON.stringify({
             uid: authResult.user.uid,
             username: authResult.user.username,
             token: authResult.accessToken
         }));
 
-        log("✅ Login SUKSES!\nUser: " + authResult.user.username);
+        log("✅ AUTH SUKSES!\nUser: " + authResult.user.username);
         payBtn.disabled = false;
-        payBtn.innerText = "💎 Bayar 0.01 Pi";
-        authBtn.innerText = "✅ Siap";
+        authBtn.innerText = "✅ Login OK";
 
     } catch (e) {
-        log("❌ Auth Gagal: " + e.message);
+        log("❌ Auth Gagal:\n" + e.message);
         authBtn.disabled = false;
         authBtn.innerText = "Coba Lagi";
     }
 });
 
+// --- PAYMENT ---
 payBtn.addEventListener("click", async () => {
-    if(!authResult) {
-        log("❌ Belum login.");
-        return; 
-    }
+    if(!authResult) return log("❌ Data user kosong.");
     
     payBtn.disabled = true;
-    payBtn.innerText = "⏳ Proses Bayar...";
+    payBtn.innerText = "Membuka Popup...";
     log("🔄 Membuat Payment...");
 
     try {
-        // --- PERBAIKAN DI SINI (Struktur Kurung Kurawal) ---
-        const payment = await Pi.createPayment({
-            amount: 0.01,
-            memo: "Clean Payment Test Fixed",
-            metadata: { userId: authResult.user.uid }
-        }, {
-            // Callback 1
+        // MEMBUAT OBJEK CALLBACK TERPISAH UNTUK KEJELASAN
+        const paymentCallbacks = {
             onReadyForServerApproval: (paymentId) => {
-                log("✅ Payment ID: " + paymentId + "\nSilakan Approve di Popup!");
+                console.log("Ready for approval:", paymentId);
+                log("✅ Payment ID: " + paymentId + "\n>> Approve di Popup!");
                 payBtn.innerText = "Tunggu Approve...";
             },
-            // Callback 2
+            
             onCompleted: (paymentId, txid) => {
-                log("🎉 PEMBAYARAN SUKSES!\nTxID: " + txid);
-                payBtn.innerText = "✅ Selesai";
+                console.log("Payment completed:", txid);
+                log("🎉 SUKSES TOTAL!\nTxID: " + txid);
+                payBtn.innerText = "✅ SUKSES";
                 payBtn.style.background = "#059669";
             },
-            // Callback 3
+            
             onCancelled: (paymentId) => {
-                log("⚠️ Dibatalkan User.");
+                console.log("Payment cancelled:", paymentId);
+                log("⚠️ Pembayaran dibatalkan user.");
                 payBtn.disabled = false;
                 payBtn.innerText = "Coba Lagi";
             },
-            // Callback 4
+            
             onError: (error, payment) => {
-                log("❌ Error Payment:\n" + error.message);
+                console.error("Payment Error:", error);
+                log("❌ ERROR:\n" + error.message);
                 payBtn.disabled = false;
                 payBtn.innerText = "Coba Lagi";
             }
-        }); // <-- PENUTUP OBJECT YANG HILANG SEBELUMNYA
+        };
+
+        // EKSEKUSI CREATE PAYMENT
+        const payment = await Pi.createPayment({
+            amount: 0.01,
+            memo: "Final Test Payment",
+            metadata: { userId: authResult.user.uid }
+        }, paymentCallbacks); // MASUKKAN OBJEK CALLBACK DI SINI
 
     } catch (error) {
-        console.error(error);
-        log("❌ Gagal Create Payment:\n" + error.message);
+        console.error("Catch Block Error:", error);
+        log("❌ SYSTEM ERROR:\n" + error.message);
         payBtn.disabled = false;
         payBtn.innerText = "Coba Lagi";
     }
 });
-</script>
 
+</script>
 </body>
 </html>
