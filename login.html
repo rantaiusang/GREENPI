@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Login - GreenProof</title>
+    <title>Login - GreenProof Pro</title>
     
     <!-- Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -185,19 +185,16 @@
         </p>
     </div>
 
-    <!-- LOGIC (FIXED VERSION) -->
+    <!-- LOGIC (PROFESSIONAL VERSION) -->
     <script>
-        // --- 1. KONFIGURASI (Sumber: pi-config.js) ---
+        // --- 1. KONFIGURASI ---
         const APP_CONFIG = {
             SUPABASE_URL: "https://lrzaiftdikcjehtlbwlg.supabase.co",
             SUPABASE_ANON_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRpa2FwcXVodXNid2pjY2JxY3NiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkxNjQ1NTQsImV4cCI6MjA4NDc0MDU1NH0.X278oHDF0be7oa25484eliSukSYAYvDbJyU6ysz83zA",
             PI: {
-                // Di SDK V2, APP ID seringkali tidak perlu di-pass manual ke init jika sudah diset di Pi Platform,
-                // tapi kita simpan di config untuk keperluan lain jika perlu.
                 APP_ID: "26949299605f32", 
                 SCOPES: ["username", "payments"]
             },
-            // Flag Sandbox mengikuti nilai di config
             IS_SANDBOX: false 
         };
 
@@ -207,20 +204,16 @@
             if (APP_CONFIG.SUPABASE_URL && APP_CONFIG.SUPABASE_ANON_KEY) {
                 supabase = window.supabase.createClient(APP_CONFIG.SUPABASE_URL, APP_CONFIG.SUPABASE_ANON_KEY);
                 console.log("✅ Supabase Client Initialized");
-            } else {
-                console.error("❌ Konfigurasi Supabase tidak lengkap.");
             }
         } catch (e) {
             console.error("❌ Gagal inisialisasi Supabase:", e);
         }
 
         // --- 3. HELPER FUNCTION (UUID SAFE) ---
-        // Menghindari error di browser lama yang tidak support crypto.randomUUID()
         function generateId() {
             if (typeof crypto !== 'undefined' && crypto.randomUUID) {
                 return crypto.randomUUID();
             } else {
-                // Fallback sederhana: Timestamp + Random
                 return 'id_' + Date.now() + '_' + Math.floor(Math.random() * 10000);
             }
         }
@@ -253,23 +246,53 @@
             }
         }
 
-        // --- 5. AUTHENTICATION LOGIC (FIXED PI.INIT) ---
+        // --- 5. FLAG GLOBAL ---
+        let piReady = false;
+
+        // --- 6. PI INIT PADA WINDOW ONLOAD (SOLUSI PROFESIONAL) ---
+        window.addEventListener("load", async () => {
+            try {
+                const Pi = window.Pi;
+                if (!Pi) {
+                    console.log("⚠️ Pi SDK tidak tersedia di environment ini.");
+                    return;
+                }
+
+                // Inisialisasi dilakukan di background saat halaman dimuat
+                await Pi.init({
+                    version: "2.0",
+                    sandbox: APP_CONFIG.IS_SANDBOX
+                });
+
+                piReady = true;
+                console.log("✅ Pi SDK Ready & Initialized (Background Load)");
+
+            } catch (err) {
+                console.error("❌ Pi Init Error:", err);
+                // Opsional: Tampilkan pesan error di UI jika init gagal total
+            }
+        });
+
+        // --- 7. AUTHENTICATION LOGIC (HANYA EKSEKUSI JIKA READY) ---
         btnLogin.addEventListener('click', async () => {
+            
+            // CEK STATUS PI SDK
+            if (!piReady) {
+                alert("Sistem sedang menyiapkan koneksi Pi. Tunggu beberapa detik lalu coba lagi.");
+                return;
+            }
+
+            // --- TUKANG SAPU (Cleanup) ---
+            console.log("🧹 Membersihkan cache session lama...");
+            localStorage.removeItem('greenproof_user'); 
+            localStorage.removeItem('pi_auth');
+
             setButtonState('loading');
 
             try {
-                // Cek ketersediaan Pi SDK
-                const Pi = window.Pi || window.PiNetwork;
-                if (!Pi) throw new Error("Pi Network SDK gagal dimuat.");
-
-                // ✅ PERBAIKAN 1: Inisialisasi SDK V2 dengan object config
-                await Pi.init({
-                    version: "2.0",
-                    sandbox: APP_CONFIG.IS_SANDBOX 
-                });
-                console.log(`✅ Pi SDK Initialized (Sandbox: ${APP_CONFIG.IS_SANDBOX})`);
-
-                // Lakukan Autentikasi
+                const Pi = window.Pi; // SDK sudah pasti ada karena piReady = true
+                
+                // Langsung lakukan autentikasi, tidak perlu init lagi
                 const authResult = await Pi.authenticate(APP_CONFIG.PI.SCOPES, {
                     onIncompletePaymentFound: (payment) => {
                         console.log("Pembayaran belum selesai ditemukan:", payment);
@@ -277,34 +300,25 @@
                 });
 
                 if (!authResult || !authResult.user) {
-                    throw new Error("Autentikasi dibatalkan oleh pengguna atau gagal.");
+                    throw new Error("Autentikasi dibatalkan.");
                 }
 
                 const piUser = authResult.user;
-                console.log("✅ Pi User Authenticated:", piUser);
 
-                // --- DATABASE SYNC (Supabase) ---
-                let finalUserId = piUser.uid; // Default ID
+                // Database Sync
+                let finalUserId = piUser.uid;
                 
                 if (supabase) {
-                    // 1. Cek apakah user sudah ada
                     const { data: dbUser, error: selectError } = await supabase
                         .from('users')
                         .select('*')
                         .eq('wallet_address', piUser.uid)
                         .maybeSingle();
 
-                    if (selectError) {
-                        console.warn("Warning saat cek user:", selectError.message);
-                    }
-
                     if (!dbUser) {
-                        // 2. Jika user belum ada, daftarkan (INSERT)
-                        console.log("⚠️ User baru terdeteksi. Mendaftarkan ke database...");
                         const { data: newUser, error: insertError } = await supabase
                             .from('users')
                             .insert([{
-                                // ✅ PERBAIKAN 3: Menggunakan fungsi helper generateId() yang aman
                                 id: generateId(),
                                 username: piUser.username || 'Pioneer',
                                 wallet_address: piUser.uid,
@@ -313,22 +327,15 @@
                             }])
                             .select();
 
-                        if (insertError) {
-                            console.error("❌ Gagal mendaftarkan user baru:", insertError);
-                            throw new Error("Gagal menyimpan data ke database.");
-                        }
-                        
-                        if (newUser && newUser.length > 0) {
+                        if (!insertError && newUser && newUser.length > 0) {
                             finalUserId = newUser[0].id;
                         }
                     } else {
-                        // 3. User sudah ada, gunakan ID dari DB
                         finalUserId = dbUser.id;
-                        console.log("✅ User ditemukan di DB:", dbUser.username);
                     }
                 }
 
-                // --- SIMPAN SESI KE LOCALSTORAGE ---
+                // Simpan Sesi Baru
                 const sessionData = {
                     id: finalUserId,
                     pi_uid: piUser.uid,
@@ -337,9 +344,8 @@
                 };
 
                 localStorage.setItem('greenproof_user', JSON.stringify(sessionData));
-                console.log("✅ Sesi tersimpan:", sessionData);
 
-                // --- SUCCESS REDIRECT ---
+                // Redirect
                 setButtonState('success');
                 setTimeout(() => {
                     window.location.href = 'dashboard.html';
