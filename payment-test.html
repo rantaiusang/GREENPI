@@ -31,43 +31,174 @@ button{ width:100%; padding:14px; border:none; border-radius:50px; margin-top:15
 </div>
 
 <script>
+/* ============================================================
+   INISIALISASI VARIABEL DARI CONFIG
+============================================================ */
+// Cek apakah config berhasil dimuat
+if(!window.APP_CONFIG) {
+    throw new Error("pi-config.js tidak ditemukan! Pastikan file ada di folder js/");
+}
+
+const BACKEND_URL = "https://lrzaiftdikcjehtlbwlg.supabase.co/functions/v1/handle-payment"; 
+
+// Ambil config dari file eksternal
+const APP_ID = window.APP_CONFIG.PI.APP_ID;
+const SDK_VERSION = window.APP_CONFIG.PI.SDK_VERSION;
+const IS_SANDBOX = window.APP_CONFIG.IS_SANDBOX;
+
+// Update Tampilan Judul berdasarkan Mode
+document.getElementById("app-title").innerText = IS_SANDBOX ? "Sandbox Payment" : "Production Payment";
+
+let Pi = window.Pi;
+let authResult = null;
+
+const statusDiv = document.getElementById("status");
+const authBtn = document.getElementById("authBtn");
+const payBtn = document.getElementById("payBtn");
+
+function log(msg) { 
+    console.log(msg); 
+    statusDiv.innerText = msg; 
+}
+
+/* ============================================================
+   INIT SDK
+============================================================ */
+window.addEventListener("load", async () => {
+    if(!Pi) return log("❌ Gunakan Pi Browser");
+    try {
+        // Menggunakan variabel dari config, bukan hardcoded
+        await Pi.init({ 
+            version: SDK_VERSION, 
+            sandbox: IS_SANDBOX 
+        });
+        
+        // Reset session (Opsional, agar selalu fresh saat testing)
+        localStorage.removeItem("greenproof_user");
+        
+        log(`✅ SDK Ready (${IS_SANDBOX ? 'Sandbox' : 'Mainnet'}).\nLogin untuk mulai.`);
+        authBtn.disabled = false;
+    } catch(e) { log("Init Error: " + e.message); }
+});
+
+/* ============================================================
+   AUTHENTICATION
+============================================================ */
 authBtn.addEventListener("click", async () => {
     authBtn.disabled = true;
-
     try {
+        // Mengambil SCOPES dari config
         authResult = await Pi.authenticate(window.APP_CONFIG.PI.SCOPES, {
-
-            // 🔥 AUTO HANDLE PAYMENT GANTUNG
-            onIncompletePaymentFound: async (payment) => {
-                log("⚠️ Payment lama ditemukan.\nMembersihkan...");
-
-                try {
-                    await fetch(BACKEND_URL, {
-                        method: "POST",
-                        headers: {
-                            "Content-Type": "application/json",
-                            "Authorization": "Bearer ANON_KEY_KAMU"
-                        },
-                        body: JSON.stringify({
-                            paymentId: payment.identifier,
-                            action: "cancel"
-                        })
-                    });
-
-                    log("✅ Payment lama berhasil dicancel.");
-                } catch (err) {
-                    log("❌ Gagal membersihkan payment lama.");
-                }
-            }
+            onIncompletePaymentFound: (p) => console.log(p)
         });
-
+        
+        localStorage.setItem("greenproof_user", JSON.stringify({
+            uid: authResult.user.uid,
+            username: authResult.user.username,
+            token: authResult.accessToken
+        }));
+        
         log("✅ Login OK!\nUser: " + authResult.user.username);
         payBtn.disabled = false;
         authBtn.innerText = "✅ Siap";
+    } catch(e) { 
+        log("Auth Gagal: " + e.message); 
+        authBtn.disabled = false; 
+    }
+});
 
-    } catch(e) {
-        log("Auth Gagal: " + e.message);
-        authBtn.disabled = false;
+/* ============================================================
+   PAYMENT LOGIC
+============================================================ */
+payBtn.addEventListener("click", async () => {
+    if(!authResult) return log("❌ Login dulu!");
+    payBtn.disabled = true;
+    log("🔄 Memulai Transaksi...");
+
+    try {
+        const paymentCallbacks = {
+            
+            // 1. SAAT USER APPROVE DI POPUP
+            onReadyForServerApproval: async (paymentId) => {
+                log("✅ User Approved.\nMenghubungi Backend (APPROVE)...");
+                
+                try {
+                    // PANGGIL BACKEND UNTUK APPROVE
+                    const res = await fetch(BACKEND_URL, {
+                        method: "POST",
+                        headers: { 
+                            "Content-Type": "application/json",
+                            // TAMBAHKAN HEADER AUTHORIZATION SUPABASE
+                            "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxyemFpZnRkaWtjamVodGxid2xnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE2NzU0MzgsImV4cCI6MjA4NzI1MTQzOH0.TWD0Te1E7ELpBBrmWapvjZKyqvWerxl90vtmyvucNFc"
+                        },
+                        body: JSON.stringify({ 
+                            paymentId, 
+                            action: "approve",
+                            metadata: { userId: authResult.user.uid }
+                        })
+                    });
+                    
+                    if(!res.ok) throw new Error("Backend Approve Gagal");
+                    
+                    log("✅ Backend Approve Sukses!\nMenunggu completion...");
+                } catch (err) {
+                    log("❌ Error Approve: " + err.message);
+                }
+            },
+
+            // 2. SAAT SIAP COMPLETION (PERBAIKAN UTAMA DISINI)
+            onReadyForServerCompletion: async (paymentId, txid) => {
+                log("🔄 Menghubungi Backend (COMPLETE)...");
+                
+                try {
+                    // PANGGIL BACKEND UNTUK COMPLETE
+                    const res = await fetch(BACKEND_URL, {
+                        method: "POST",
+                        headers: { 
+                            "Content-Type": "application/json",
+                            // TAMBAHKAN HEADER AUTHORIZATION SUPABASE
+                            "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxyemFpZnRkaWtjamVodGxid2xnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE2NzU0MzgsImV4cCI6MjA4NzI1MTQzOH0.TWD0Te1E7ELpBBrmWapvjZKyqvWerxl90vtmyvucNFc"
+                        },
+                        body: JSON.stringify({ 
+                            paymentId, 
+                            action: "complete",
+                            txid   // 🔥 PERBAIKAN WAJIB: MENGIRIM txid DARI SDK KE BACKEND
+                        })
+                    });
+                    
+                    if(!res.ok) throw new Error("Backend Complete Gagal");
+
+                    log("🎉 TRANSAKSI SELESAI!\nTxID: " + txid);
+                    payBtn.innerText = "✅ SUKSES";
+                } catch (err) {
+                    log("❌ Error Complete: " + err.message);
+                }
+            },
+
+            onCancel: (paymentId) => {
+                log("⚠️ Dibatalkan User.");
+                payBtn.disabled = false;
+            },
+
+            onError: (error, payment) => {
+                log("❌ Error: " + error.message);
+                payBtn.disabled = false;
+            }
+        };
+
+        const payment = await Pi.createPayment({
+            amount: 0.01,
+            memo: "Full Stack Payment Test",
+            metadata: { 
+                userId: authResult.user.uid,
+                username: authResult.user.username,
+                timestamp: Date.now()
+            }
+        }, paymentCallbacks);
+
+    } catch (error) {
+        log("❌ Gagal Create Payment: " + error.message);
+        payBtn.disabled = false;
     }
 });
 </script>
