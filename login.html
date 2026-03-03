@@ -6,7 +6,7 @@
     <title>Login - GreenProof Pro</title>
     
     <!-- Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=stylesheet" rel="stylesheet">
     <!-- Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
@@ -185,11 +185,12 @@
         </p>
     </div>
 
-    <!-- LOGIC (PROFESSIONAL VERSION) -->
+    <!-- LOGIC (PROFESSIONAL VERSION - FIXED) -->
     <script>
         // --- 1. KONFIGURASI ---
         const APP_CONFIG = {
             SUPABASE_URL: "https://lrzaiftdikcjehtlbwlg.supabase.co",
+            // PASTIKAN KEY INI VALID DAN DIPERBOLEHKAN DI SUPABASE DASHBOARD
             SUPABASE_ANON_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRpa2FwcXVodXNid2pjY2JxY3NiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkxNjQ1NTQsImV4cCI6MjA4NDc0MDU1NH0.X278oHDF0be7oa25484eliSukSYAYvDbJyU6ysz83zA",
             PI: {
                 APP_ID: "26949299605f32", 
@@ -248,37 +249,59 @@
 
         // --- 5. FLAG GLOBAL ---
         let piReady = false;
+        let initPromise = null; // PERBAIKAN: Menyimpan promise init agar bisa ditunggu
 
-        // --- 6. PI INIT PADA WINDOW ONLOAD (SOLUSI PROFESIONAL) ---
-        window.addEventListener("load", async () => {
-            try {
-                const Pi = window.Pi;
-                if (!Pi) {
-                    console.log("⚠️ Pi SDK tidak tersedia di environment ini.");
-                    return;
-                }
+        // --- 6. PI INIT & POLLING (SOLUSI PROFESIONAL) ---
+        
+        // Fungsi helper untuk menunggu SDK siap
+        async function waitForPiReady() {
+            if (piReady) return true;
+            
+            // Jika init belum berjalan, jalankan
+            if (!initPromise) {
+                initPromise = (async () => {
+                    try {
+                        const Pi = window.Pi;
+                        if (!Pi) throw new Error("Pi SDK tidak dimuat");
 
-                // Inisialisasi dilakukan di background saat halaman dimuat
-                await Pi.init({
-                    version: "2.0",
-                    sandbox: APP_CONFIG.IS_SANDBOX
-                });
-
-                piReady = true;
-                console.log("✅ Pi SDK Ready & Initialized (Background Load)");
-
-            } catch (err) {
-                console.error("❌ Pi Init Error:", err);
-                // Opsional: Tampilkan pesan error di UI jika init gagal total
+                        await Pi.init({
+                            version: "2.0",
+                            sandbox: APP_CONFIG.IS_SANDBOX
+                        });
+                        
+                        piReady = true;
+                        console.log("✅ Pi SDK Initialized via Polling");
+                        return true;
+                    } catch (err) {
+                        console.error("❌ Pi Init Failed:", err);
+                        return false;
+                    }
+                })();
             }
+            
+            // Tunggu promise selesai
+            return await initPromise;
+        }
+
+        // Jalankan inisialisasi otomatis saat load (opsional, tapi baik untuk performa)
+        window.addEventListener("load", () => {
+            waitForPiReady().then(success => {
+                if(!success) console.warn("⚠️ Gagal memuat Pi SDK di background");
+            });
         });
 
-        // --- 7. AUTHENTICATION LOGIC (HANYA EKSEKUSI JIKA READY) ---
+        // --- 7. AUTHENTICATION LOGIC ---
         btnLogin.addEventListener('click', async () => {
+            setButtonState('loading');
+
+            // PERBAIKAN: Gunakan polling menunggu SDK siap
+            // Mencegah error jika user klik terlalu cepat sebelum window.load selesai
+            const isReady = await waitForPiReady();
             
-            // CEK STATUS PI SDK
-            if (!piReady) {
-                alert("Sistem sedang menyiapkan koneksi Pi. Tunggu beberapa detik lalu coba lagi.");
+            if (!isReady || !window.Pi) {
+                console.error("❌ Pi SDK tidak tersedia.");
+                setButtonState('error');
+                alert("Gagal memuat koneksi Pi Network. Periksa koneksi internet Anda.");
                 return;
             }
 
@@ -287,12 +310,10 @@
             localStorage.removeItem('greenproof_user'); 
             localStorage.removeItem('pi_auth');
 
-            setButtonState('loading');
-
             try {
-                const Pi = window.Pi; // SDK sudah pasti ada karena piReady = true
+                const Pi = window.Pi;
                 
-                // Langsung lakukan autentikasi, tidak perlu init lagi
+                // Authenticate
                 const authResult = await Pi.authenticate(APP_CONFIG.PI.SCOPES, {
                     onIncompletePaymentFound: (payment) => {
                         console.log("Pembayaran belum selesai ditemukan:", payment);
@@ -300,7 +321,7 @@
                 });
 
                 if (!authResult || !authResult.user) {
-                    throw new Error("Autentikasi dibatalkan.");
+                    throw new Error("Autentikasi dibatalkan oleh user.");
                 }
 
                 const piUser = authResult.user;
@@ -315,7 +336,12 @@
                         .eq('wallet_address', piUser.uid)
                         .maybeSingle();
 
+                    if (selectError) {
+                        console.error("Supabase Select Error:", selectError);
+                    }
+
                     if (!dbUser) {
+                        console.log("🆕 User baru, membuat record...");
                         const { data: newUser, error: insertError } = await supabase
                             .from('users')
                             .insert([{
@@ -329,9 +355,12 @@
 
                         if (!insertError && newUser && newUser.length > 0) {
                             finalUserId = newUser[0].id;
+                        } else {
+                            console.error("Gagal insert user:", insertError);
                         }
                     } else {
                         finalUserId = dbUser.id;
+                        console.log("♻️ User ditemukan:", dbUser.username);
                     }
                 }
 
@@ -344,15 +373,17 @@
                 };
 
                 localStorage.setItem('greenproof_user', JSON.stringify(sessionData));
+                console.log("💾 Session saved:", sessionData);
 
                 // Redirect
                 setButtonState('success');
                 setTimeout(() => {
+                    // Pastikan dashboard.html ada
                     window.location.href = 'dashboard.html';
                 }, 1200);
 
             } catch (error) {
-                console.error("❌ Login Error:", error);
+                console.error("❌ Login Process Error:", error);
                 setButtonState('error');
             }
         });
