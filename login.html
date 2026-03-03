@@ -175,13 +175,16 @@ throw new Error("APP_CONFIG missing");
 console.log("Config Loaded:",window.APP_CONFIG.PI.APP_ID);
 
 /* ===============================
-   SUPABASE INIT
+   SUPABASE INIT (PERBAIKAN)
 ================================*/
-let supabase=null;
+// Mengganti nama variabel dari 'supabase' menjadi '_supabaseClient'
+// untuk menghindari konflik dengan global object dari CDN Supabase.
+let _supabaseClient = null;
 
 if(window.supabase){
 try{
-supabase=window.supabase.createClient(
+// Menggunakan window.supabase untuk membuat instance client
+_supabaseClient = window.supabase.createClient(
 window.APP_CONFIG.SUPABASE_URL,
 window.APP_CONFIG.SUPABASE_ANON_KEY
 );
@@ -288,16 +291,17 @@ const user=authResult.user;
 setStatus("Login berhasil","success");
 
 /* ---- SUPABASE SAVE ---- */
-if(supabase){
+// Menggunakan _supabaseClient yang sudah diinisialisasi di atas
+if(_supabaseClient){
 
-const {data:existing}=await supabase
+const {data:existing}=await _supabaseClient
 .from("users")
 .select("*")
 .eq("wallet_address",user.uid)
 .maybeSingle();
 
 if(!existing){
-await supabase.from("users").insert([{
+await _supabaseClient.from("users").insert([{
 username:user.username||"Pioneer",
 wallet_address:user.uid,
 created_at:new Date()
