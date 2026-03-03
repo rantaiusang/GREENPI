@@ -42,7 +42,7 @@ window.APP_CONFIG = {
     // ==========================================
 
     PI: {
-        APP_ID: "26949299605f32", // GANTI DENGAN APP ID DARI PIONE CONSOLE
+        APP_ID: "greenpi4068", // GANTI DENGAN APP ID DARI PIONE CONSOLE
         SDK_VERSION: "2.0",
         SCOPES: ["username", "payments"]
     },
