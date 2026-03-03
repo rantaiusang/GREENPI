@@ -10,7 +10,7 @@ window.APP_CONFIG = {
     ===================================================== */
     // Jika Anda testing di Pi Browser Sandbox, ubah ke true.
     // Jika sudah deploy untuk user sungguhan, ubah ke false.
-    IS_SANDBOX: false, 
+    IS_SANDBOX: true, 
 
     /* =====================================================
        2. SUPABASE CONFIG
