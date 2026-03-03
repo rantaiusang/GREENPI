@@ -1,10 +1,14 @@
-]<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="id">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Real Payment - Full Stack</title>
+
+<!-- 1. LOAD CONFIG DULU -->
+<script src="js/pi-config.js"></script>
 <script src="https://sdk.minepi.com/pi-sdk.js"></script>
+
 <style>
 body{ font-family: sans-serif; background:#0f172a; color:white; display:flex; justify-content:center; align-items:center; min-height:100vh; margin:0; }
 .container{ text-align:center; background:#1e293b; padding:30px; border-radius:20px; width:90%; max-width:380px; }
@@ -17,22 +21,34 @@ button{ width:100%; padding:14px; border:none; border-radius:50px; margin-top:15
 <body>
 
 <div class="container">
-<h2>Production Payment</h2>
+<h2 id="app-title">Production Payment</h2>
 <p style="font-size:12px; color:#94a3b8;">Terhubung ke Backend (Edge Function)</p>
 
 <button id="authBtn" disabled>1. Login</button>
 <button id="payBtn" disabled>2. Bayar 0.01 Pi</button>
 
-<div id="status">Memuat...</div>
+<div id="status">Memuat Config...</div>
 </div>
 
 <script>
-// KONFIGURASI URL BACKEND
-// Ganti URL ini dengan URL Edge Function Supabase Anda setelah deploy
-const BACKEND_URL = "https://lrzaiftdikcjehtlbwlg.supabase.co/functions/v1/handle-payment"; 
-// (Sesuaikan dengan project URL Supabase Anda)
+/* ============================================================
+   INISIALISASI VARIABEL DARI CONFIG
+============================================================ */
+// Cek apakah config berhasil dimuat
+if(!window.APP_CONFIG) {
+    throw new Error("pi-config.js tidak ditemukan! Pastikan file ada di folder js/");
+}
 
-const APP_ID = "26949299605f32";
+const BACKEND_URL = "https://lrzaiftdikcjehtlbwlg.supabase.co/functions/v1/handle-payment"; 
+
+// Ambil config dari file eksternal
+const APP_ID = window.APP_CONFIG.PI.APP_ID;
+const SDK_VERSION = window.APP_CONFIG.PI.SDK_VERSION;
+const IS_SANDBOX = window.APP_CONFIG.IS_SANDBOX;
+
+// Update Tampilan Judul berdasarkan Mode
+document.getElementById("app-title").innerText = IS_SANDBOX ? "Sandbox Payment" : "Production Payment";
+
 let Pi = window.Pi;
 let authResult = null;
 
@@ -45,24 +61,34 @@ function log(msg) {
     statusDiv.innerText = msg; 
 }
 
+/* ============================================================
+   INIT SDK
+============================================================ */
 window.addEventListener("load", async () => {
     if(!Pi) return log("❌ Gunakan Pi Browser");
     try {
-        // PRODUCTION MODE
-        await Pi.init({ version: "2.0", sandbox: false });
+        // Menggunakan variabel dari config, bukan hardcoded
+        await Pi.init({ 
+            version: SDK_VERSION, 
+            sandbox: IS_SANDBOX 
+        });
         
-        // Reset session
+        // Reset session (Opsional, agar selalu fresh saat testing)
         localStorage.removeItem("greenproof_user");
         
-        log("✅ SDK Ready (Mainnet).\nLogin untuk mulai.");
+        log(`✅ SDK Ready (${IS_SANDBOX ? 'Sandbox' : 'Mainnet'}).\nLogin untuk mulai.`);
         authBtn.disabled = false;
     } catch(e) { log("Init Error: " + e.message); }
 });
 
+/* ============================================================
+   AUTHENTICATION
+============================================================ */
 authBtn.addEventListener("click", async () => {
     authBtn.disabled = true;
     try {
-        authResult = await Pi.authenticate(["username", "payments"], {
+        // Mengambil SCOPES dari config
+        authResult = await Pi.authenticate(window.APP_CONFIG.PI.SCOPES, {
             onIncompletePaymentFound: (p) => console.log(p)
         });
         
@@ -81,6 +107,9 @@ authBtn.addEventListener("click", async () => {
     }
 });
 
+/* ============================================================
+   PAYMENT LOGIC
+============================================================ */
 payBtn.addEventListener("click", async () => {
     if(!authResult) return log("❌ Login dulu!");
     payBtn.disabled = true;
@@ -98,7 +127,12 @@ payBtn.addEventListener("click", async () => {
                     const res = await fetch(BACKEND_URL, {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ paymentId, action: "approve" })
+                        body: JSON.stringify({ 
+                            paymentId, 
+                            action: "approve",
+                            // Opsional: Kirim data tambahan ke backend jika perlu
+                            metadata: { userId: authResult.user.uid }
+                        })
                     });
                     
                     if(!res.ok) throw new Error("Backend Approve Gagal");
@@ -144,7 +178,12 @@ payBtn.addEventListener("click", async () => {
         const payment = await Pi.createPayment({
             amount: 0.01,
             memo: "Full Stack Payment Test",
-            metadata: { userId: authResult.user.uid }
+            // METADATA LENGKAP
+            metadata: { 
+                userId: authResult.user.uid,
+                username: authResult.user.username,
+                timestamp: Date.now()
+            }
         }, paymentCallbacks);
 
     } catch (error) {
