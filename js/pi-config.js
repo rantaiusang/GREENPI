@@ -1,10 +1,6 @@
-**
+/**
  * pi-config.js
- * MASTER CONFIGURATION
- * Version: 2.0 - Production Ready
- *
- * File ini adalah pusat konfigurasi aplikasi GreenProof
- * Pastikan URL dan Key sudah benar sebelum deploy.
+ * MASTER CONFIGURATION - GreenProof
  */
 
 window.APP_CONFIG = {
@@ -12,81 +8,26 @@ window.APP_CONFIG = {
     /* =====================================================
        1. ENVIRONMENT
     ===================================================== */
-
-    // TRUE = Testing di Sandbox
-    // FALSE = Production / Mainnet
-    IS_SANDBOX: false,
-
+    // Jika Anda testing di Pi Browser Sandbox, ubah ke true.
+    // Jika sudah deploy untuk user sungguhan, ubah ke false.
+    IS_SANDBOX: false, 
 
     /* =====================================================
        2. SUPABASE CONFIG
     ===================================================== */
-
-    // Supabase Public Anon Key
-    SUPABASE_ANON_KEY: "GANTI_DENGAN_ANON_KEY_KAMU",
-
-    // Supabase Project URL
-    SUPABASE_URL: "https://YOUR-PROJECT.supabase.co",
-
+    // Menggunakan data dari kode Anda sebelumnya
+    SUPABASE_URL: "https://lrzaiftdikcjehtlbwlg.supabase.co",
+    SUPABASE_ANON_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRpa2FwcXVodXNid2pjY2JxY3NiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkxNjQ1NTQsImV4cCI6MjA4NDc0MDU1NH0.X278oHDF0be7oa25484eliSukSYAYvDbJyU6ysz83zA",
 
     /* =====================================================
-       3. API ENDPOINTS (Untuk Backend / Edge)
+       3. PI NETWORK CONFIG
     ===================================================== */
-
-    ENDPOINTS: {
-        LOGIN: "/auth/verify-user-login",
-        VERIFY_PAYMENT: "/payments/verify-payment",
-        CHECK_STATUS: "/payments/check-status"
-    },
-
-
-    /* =====================================================
-       4. PI NETWORK CONFIG
-    ===================================================== */
-
     PI: {
-        // Ambil dari Developer Console Pi
-        APP_ID: "GREENPI_APP_ID",
+        // Pastikan ini SAMA PERSIS dengan yang ada di Pi Developer Console
+        APP_ID: "26949299605f32", 
         SDK_VERSION: "2.0",
         SCOPES: ["username", "payments"]
     }
-
 };
 
-
-
-/* =========================================================
-   HELPER FUNCTIONS (DI LUAR OBJECT)
-========================================================= */
-
-/**
- * Generate Endpoint URL dengan aman
- * Contoh:
- * getAppUrl("LOGIN")
- */
-window.getAppUrl = function (endpointKey) {
-
-    if (!window.APP_CONFIG) {
-        console.error("APP_CONFIG belum dimuat.");
-        return "#";
-    }
-
-    const baseUrl = window.APP_CONFIG.SUPABASE_URL;
-    const endpoint = window.APP_CONFIG.ENDPOINTS?.[endpointKey];
-
-    if (!baseUrl || !endpoint) {
-        console.error("Endpoint tidak ditemukan:", endpointKey);
-        return "#";
-    }
-
-    return ${baseUrl.replace(/\/+$/, "")}/${endpoint.replace(/^\/+/, "")};
-};
-
-
-
-/* =========================================================
-   DEBUG LOG
-========================================================= */
-
-console.log("✅ Pi Config Loaded Successfully");
-console.log("Mode:", window.APP_CONFIG.IS_SANDBOX ? "SANDBOX" : "PRODUCTION");
+console.log("✅ pi-config.js Loaded. Mode:", window.APP_CONFIG.IS_SANDBOX ? "SANDBOX" : "PRODUCTION");
