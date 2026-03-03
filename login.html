@@ -185,17 +185,20 @@
         </p>
     </div>
 
-    <!-- LOGIC -->
+    <!-- LOGIC (FIXED VERSION) -->
     <script>
         // --- 1. KONFIGURASI (Sumber: pi-config.js) ---
         const APP_CONFIG = {
             SUPABASE_URL: "https://lrzaiftdikcjehtlbwlg.supabase.co",
             SUPABASE_ANON_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRpa2FwcXVodXNid2pjY2JxY3NiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkxNjQ1NTQsImV4cCI6MjA4NDc0MDU1NH0.X278oHDF0be7oa25484eliSukSYAYvDbJyU6ysz83zA",
             PI: {
-                APP_ID: "26949299605f32",
+                // Di SDK V2, APP ID seringkali tidak perlu di-pass manual ke init jika sudah diset di Pi Platform,
+                // tapi kita simpan di config untuk keperluan lain jika perlu.
+                APP_ID: "26949299605f32", 
                 SCOPES: ["username", "payments"]
             },
-            IS_SANDBOX: false
+            // Flag Sandbox mengikuti nilai di config
+            IS_SANDBOX: false 
         };
 
         // --- 2. INISIALISASI SUPABASE ---
@@ -211,7 +214,18 @@
             console.error("❌ Gagal inisialisasi Supabase:", e);
         }
 
-        // --- 3. UI LOGIC ---
+        // --- 3. HELPER FUNCTION (UUID SAFE) ---
+        // Menghindari error di browser lama yang tidak support crypto.randomUUID()
+        function generateId() {
+            if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+                return crypto.randomUUID();
+            } else {
+                // Fallback sederhana: Timestamp + Random
+                return 'id_' + Date.now() + '_' + Math.floor(Math.random() * 10000);
+            }
+        }
+
+        // --- 4. UI LOGIC ---
         const btnLogin = document.getElementById('btn-login');
         const btnText = document.querySelector('.btn-text');
         const spinner = document.querySelector('.spinner');
@@ -230,7 +244,6 @@
                 btnLogin.classList.add('error');
                 btnLogin.innerHTML = `<span class="btn-text"><i class="fas fa-times"></i> Gagal / Coba Lagi</span>`;
                 spinner.style.display = 'none';
-                // Aktifkan tombol lagi setelah 2 detik
                 setTimeout(() => setButtonState('idle'), 2000);
             } else {
                 // Idle State
@@ -240,21 +253,21 @@
             }
         }
 
-        // --- 4. AUTHENTICATION LOGIC ---
+        // --- 5. AUTHENTICATION LOGIC (FIXED PI.INIT) ---
         btnLogin.addEventListener('click', async () => {
             setButtonState('loading');
 
             try {
-                const appId = APP_CONFIG.PI.APP_ID;
-                
-                if (!appId) throw new Error("APP_ID tidak ditemukan di konfigurasi.");
-
                 // Cek ketersediaan Pi SDK
                 const Pi = window.Pi || window.PiNetwork;
-                if (!Pi) throw new Error("Pi Network SDK gagal dimuat. Periksa koneksi internet.");
+                if (!Pi) throw new Error("Pi Network SDK gagal dimuat.");
 
-                // Inisialisasi Pi SDK
-                Pi.init(appId);
+                // ✅ PERBAIKAN 1: Inisialisasi SDK V2 dengan object config
+                await Pi.init({
+                    version: "2.0",
+                    sandbox: APP_CONFIG.IS_SANDBOX 
+                });
+                console.log(`✅ Pi SDK Initialized (Sandbox: ${APP_CONFIG.IS_SANDBOX})`);
 
                 // Lakukan Autentikasi
                 const authResult = await Pi.authenticate(APP_CONFIG.PI.SCOPES, {
@@ -291,10 +304,11 @@
                         const { data: newUser, error: insertError } = await supabase
                             .from('users')
                             .insert([{
-                                id: crypto.randomUUID(),
+                                // ✅ PERBAIKAN 3: Menggunakan fungsi helper generateId() yang aman
+                                id: generateId(),
                                 username: piUser.username || 'Pioneer',
                                 wallet_address: piUser.uid,
-                                reputation: 100, // Nilai awal
+                                reputation: 100, 
                                 status: 'active'
                             }])
                             .select();
