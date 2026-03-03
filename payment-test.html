@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Final Correct Payment</title>
+<title>Absolute Final Payment</title>
 
 <!-- 1. LOAD CONFIG DULU -->
 <script src="js/pi-config.js"></script>
@@ -22,7 +22,7 @@ button{ width:100%; padding:14px; border:none; border-radius:50px; margin-top:15
 
 <div class="container">
 <h2 id="app-title">Production Payment</h2>
-<p style="font-size:12px; color:#94a3b8;">Final Fixed Version</p>
+<p style="font-size:12px; color:#94a3b8;">Absolute Final Solution</p>
 
 <button id="authBtn" disabled>1. Login</button>
 <button id="payBtn" disabled>2. Bayar 0.01 Pi</button>
@@ -64,7 +64,6 @@ function log(msg) {
 window.addEventListener("load", async () => {
     if(!Pi) return log("❌ Gunakan Pi Browser");
     try {
-        // Init BERSIH, tanpa onIncompletePaymentFound
         await Pi.init({ 
             version: SDK_VERSION, 
             sandbox: IS_SANDBOX
@@ -78,33 +77,12 @@ window.addEventListener("load", async () => {
 });
 
 /* ============================================================
-   AUTHENTICATION + HANDLE PENDING (POSISI BENAR)
+   AUTHENTICATION
 ============================================================ */
 authBtn.addEventListener("click", async () => {
     authBtn.disabled = true;
     try {
-        // --- PERBAIKAN: onIncompletePaymentFound DI SINI ---
-        authResult = await Pi.authenticate(window.APP_CONFIG.PI.SCOPES, {
-            onIncompletePaymentFound: async (payment) => {
-                log("⚠️ Payment tertunda terdeteksi.\nMencoba menyelesaikan otomatis...");
-                try {
-                    // Coba complete otomatis via backend
-                    await fetch(BACKEND_URL, {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({
-                            paymentId: payment.identifier,
-                            action: "complete",
-                            txid: payment.txid || "" // Ambil txid dari objek payment jika ada
-                        })
-                    });
-                    log("✅ Payment lama diselesaikan. Refreshing...");
-                    setTimeout(() => location.reload(), 2000);
-                } catch (err) {
-                    log("❌ Gagal auto-complete:\n" + err.message + "\nSilakan cancel manual di wallet.");
-                }
-            }
-        });
+        authResult = await Pi.authenticate(window.APP_CONFIG.PI.SCOPES);
         
         localStorage.setItem("greenproof_user", JSON.stringify({
             uid: authResult.user.uid,
@@ -122,7 +100,7 @@ authBtn.addEventListener("click", async () => {
 });
 
 /* ============================================================
-   PAYMENT LOGIC
+   PAYMENT LOGIC (TEMPAT onIncompletePaymentFound YANG BENAR)
 ============================================================ */
 payBtn.addEventListener("click", async () => {
     if(!authResult) return log("❌ Login dulu!");
@@ -156,7 +134,7 @@ payBtn.addEventListener("click", async () => {
                 }
             },
 
-            // 2. COMPLETE (MENGIRIM TXID WAJIB)
+            // 2. COMPLETE
             onReadyForServerCompletion: async (paymentId, txid) => {
                 log("🔄 Menghubungi Backend (COMPLETE)...");
                 
@@ -170,7 +148,7 @@ payBtn.addEventListener("click", async () => {
                         body: JSON.stringify({ 
                             paymentId, 
                             action: "complete",
-                            txid: txid // 🔥 WAJIB DIKIRIM SESUAI BACKEND
+                            txid: txid 
                         })
                     });
                     
@@ -182,20 +160,51 @@ payBtn.addEventListener("click", async () => {
                 }
             },
 
+            // 3. CANCEL
             onCancel: (paymentId) => {
                 log("⚠️ Dibatalkan User.");
                 payBtn.disabled = false;
             },
 
+            // 4. ERROR
             onError: (error, payment) => {
                 log("❌ Error: " + error.message);
                 payBtn.disabled = false;
+            },
+
+            // 5. 🔥 HANDLE INCOMPLETE PAYMENT (SOLUSI UTAMA)
+            onIncompletePaymentFound: async (payment) => {
+                log("⚠️ Payment Macet Ditemukan!\nID: " + payment.identifier);
+                log("🔄 Mencoba menyelesaikan otomatis via Backend...");
+                
+                try {
+                    // Kita coba complete. Jika gagal (misal butuh approve dulu),
+                    // user harus handle manual di wallet, tapi setidaknya kita coba selamatkan.
+                    const res = await fetch(BACKEND_URL, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            action: "complete",
+                            paymentId: payment.identifier,
+                            txid: payment.txid || "" 
+                        })
+                    });
+
+                    if(res.ok) {
+                        log("✅ Payment Macet Berhasil Diselesaikan!");
+                        setTimeout(() => location.reload(), 2000);
+                    } else {
+                        log("❌ Gagal auto-complete. Status masih menggantung.");
+                    }
+                } catch (err) {
+                    log("❌ Error saat menyelesaikan payment lama: " + err.message);
+                }
             }
         };
 
         const payment = await Pi.createPayment({
             amount: 0.01,
-            memo: "Final Correct Payment Test",
+            memo: "Absolute Final Test",
             metadata: { 
                 userId: authResult.user.uid,
                 username: authResult.user.username,
