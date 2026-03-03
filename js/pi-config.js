@@ -10,7 +10,7 @@ window.APP_CONFIG = {
     ===================================================== */
     // PERBAIKAN: Karena Anda membuka greenpi.vercel.app (Production Domain),
     // SDK harus diset ke false. Jika diset true, akan error 'Target Origin Mismatch'.
-    IS_SANDBOX: true, 
+    IS_SANDBOX: false, 
 
     /* =====================================================
        2. SUPABASE CONFIG (ACTION REQUIRED)
