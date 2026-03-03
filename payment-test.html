@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Pi Payment - Auto Session</title>
+<title>Pi Payment - Scope Fix</title>
 
 <!-- Pi SDK -->
 <script src="https://sdk.minepi.com/pi-sdk.js"></script>
@@ -37,7 +37,6 @@ button{
     padding:15px 30px;
     border:none;
     border-radius:50px;
-    background:#7b2cbf;
     color:white;
     font-size:16px;
     font-weight: bold;
@@ -47,10 +46,10 @@ button{
     margin-top: 10px;
 }
 
-button:hover{ background:#5a189a; }
-button:disabled { background:#475569; cursor: not-allowed; opacity: 0.7; }
+button:hover{ opacity: 0.9; }
+button:disabled { background:#475569; cursor: not-allowed; opacity: 0.5; }
 
-.btn-auth { background: #3b82f6; } /* Biru untuk Auth */
+.btn-auth { background: #f59e0b; } /* Kuning/Oranye untuk Upgrade Izin */
 .btn-pay { background: #10b981; } /* Hijau untuk Bayar */
 
 #status{
@@ -66,7 +65,6 @@ button:disabled { background:#475569; cursor: not-allowed; opacity: 0.7; }
     font-family: monospace;
 }
 
-/* Hide elements utility */
 .hidden { display: none !important; }
 </style>
 
@@ -74,26 +72,30 @@ button:disabled { background:#475569; cursor: not-allowed; opacity: 0.7; }
 <body>
 
 <div class="container">
-<h2>Pi Payment Test</h2>
-<p>Session akan mengikuti login sebelumnya.</p>
+<h2>Payment Gateway</h2>
+<p>Mengecek izin akses pembayaran...</p>
 
-<!-- Tombol Auth hanya muncul jika BELUM login -->
-<button id="authBtn" class="btn-auth hidden">1. Sesi Hilang, Login Ulang</button>
+<!-- Tombol ini muncul JIKA izin pembayaran belum ada -->
+<button id="authBtn" class="btn-auth hidden">
+    ⚠️ Izinkan Pembayaran (Required)
+</button>
 
-<!-- Tombol Bayar akan aktif jika SUDAH login -->
-<button id="payBtn" class="btn-pay" disabled>2. Bayar 0.01 Pi</button>
+<!-- Tombol ini muncul JIKA izin pembayaran SUDAH ada -->
+<button id="payBtn" class="btn-pay hidden">
+    💎 Bayar 0.01 Pi
+</button>
 
-<div id="status">Memeriksa sesi login...</div>
+<div id="status">Memeriksa izin SDK...</div>
 </div>
 
 <script>
 
 /* =========================
-   CONFIG & VARS
+   CONFIG
 ========================= */
 const APP_ID = "26949299605f32";
 let Pi = window.Pi;
-let authResult = null; // Menampung data user
+let authResult = null; // Akses token lengkap
 
 const statusDiv = document.getElementById("status");
 const authBtn = document.getElementById("authBtn");
@@ -105,150 +107,150 @@ function log(msg) {
 }
 
 /* =========================
-   FUNGSI: CEK SESI (LOGIKA UTAMA)
-========================= */
-function checkSession() {
-    // 1. Cek apakah ada data 'greenproof_user' di localStorage (Disimpan saat login di halaman sebelumnya)
-    const savedUser = localStorage.getItem("greenproof_user");
-
-    if (savedUser) {
-        try {
-            const parsedUser = JSON.parse(savedUser);
-            
-            // 2. Jika ada, kita buat dummy authResult agar SDK mengenali
-            // Kita tidak perlu memanggil Pi.authenticate lagi jika kita hanya butuh data UID/Username
-            authResult = {
-                user: {
-                    uid: parsedUser.uid,
-                    username: parsedUser.username
-                },
-                accessToken: parsedUser.token
-            };
-
-            log(`✅ Sesi Ditemukan!\nHalo, @${authResult.user.username}\nAnda bisa langsung bayar.`);
-            
-            // Aktifkan tombol bayar, sembunyikan tombol login
-            payBtn.disabled = false;
-            payBtn.innerText = "💎 Bayar 0.01 Pi Sekarang";
-            authBtn.classList.add("hidden"); // Sembunyikan tombol login
-
-        } catch (e) {
-            console.error("Gagal parse sesi", e);
-            showLoginButton();
-        }
-    } else {
-        // 3. Jika tidak ada data di localStorage, tampilkan tombol login
-        log("⚠️ Belum ada sesi login.\nSilakan login dulu.");
-        showLoginButton();
-    }
-}
-
-function showLoginButton() {
-    authBtn.classList.remove("hidden");
-    authBtn.disabled = false;
-    payBtn.classList.add("hidden"); // Sembunyikan tombol bayar sampai login
-}
-
-/* =========================
-   INIT SDK
+   LOGIKA UTAMA: CEK & REPAIR SCOPE
 ========================= */
 window.addEventListener("load", async () => {
     
     if(!Pi) return log("❌ Buka di Pi Browser!");
 
     try {
-        // Init SDK tetap diperlukan untuk komunikasi dengan Pi Network
+        // 1. Init SDK
         await Pi.init({ version: "2.0", sandbox: false });
-        
-        // Setelah siap, cek apakah user sudah login dari halaman sebelumnya
-        checkSession();
+
+        // 2. Cek apakah ada sesi lama?
+        const savedUser = localStorage.getItem("greenproof_user");
+
+        if (savedUser) {
+            try {
+                const parsed = JSON.parse(savedUser);
+                // Kita asumsikan dulu data ini valid
+                authResult = {
+                    user: { uid: parsed.uid, username: parsed.username },
+                    accessToken: parsed.token
+                };
+                
+                log(`✅ Sesi ditemukan: @${authResult.user.username}`);
+                log("Mencoba memuat tombol bayar...");
+                
+                // Tampilkan tombol bayar dulu
+                payBtn.classList.remove("hidden");
+                
+            } catch (e) {
+                console.error("Session corrupt", e);
+                showAuthButton();
+            }
+        } else {
+            showAuthButton();
+        }
 
     } catch (e) {
         log("❌ Init Error: " + e.message);
     }
 });
 
+function showAuthButton() {
+    payBtn.classList.add("hidden");
+    authBtn.classList.remove("hidden");
+    log("⚠️ Izin pembayaran diperlukan.\nSilakan klik tombol oranye.");
+}
+
 /* =========================
-   LOGIN MANUAL (JIKA SESI HILANG)
+   TOMBOL 1: AUTH UNTUK MENDAPATKAN SCOPE
 ========================= */
 authBtn.addEventListener("click", async () => {
     authBtn.disabled = true;
-    authBtn.innerText = "Menghubungkan...";
-    log("Membuka popup autentikasi...");
+    authBtn.innerText = "Menghubungkan ke Pi...";
+    log("Meminta izin 'payments'...");
 
     try {
-        // Jika user klik tombol ini, berarti sesi hilang, jadi kita auth ulang
+        // AUTHENTICATE DENGAN SCOPE PAYMENTS
+        // Ini yang akan memperbaiki error "cannot create payment"
         authResult = await Pi.authenticate(["username", "payments"], {
             onIncompletePaymentFound: (payment) => {
-                log("⚠️ Pembayaran tertunda: " + payment.identifier);
+                log("Pembayaran tertunda ditemukan.");
             }
         });
 
-        // Simpan ulang ke localStorage agar besok tidak perlu login lagi
+        // Simpan token BARU yang memiliki izin payments
         localStorage.setItem("greenproof_user", JSON.stringify({
             uid: authResult.user.uid,
             username: authResult.user.username,
-            token: authResult.accessToken
+            token: authResult.accessToken // Token ini sekarang punya izin bayar
         }));
 
-        log("✅ Login Sukses!\nUser: " + authResult.user.username);
+        log("✅ Izin Pembayaran Diterima!");
         
-        // UI Update
+        // Ganti tombol
         authBtn.classList.add("hidden");
         payBtn.classList.remove("hidden");
-        payBtn.disabled = false;
-        payBtn.innerText = "💎 Bayar 0.01 Pi Sekarang";
 
     } catch (e) {
-        log("❌ Auth Gagal: " + e.message);
+        log("❌ Gagal mendapat izin: " + e.message);
         authBtn.disabled = false;
-        authBtn.innerText = "Coba Login Lagi";
+        authBtn.innerText = "Coba Lagi";
     }
 });
 
 /* =========================
-   STEP 2: TRANSACTION
+   TOMBOL 2: EKSEKUSI PEMBAYARAN
 ========================= */
 payBtn.addEventListener("click", async () => {
 
-    if(!authResult) return log("❌ Data user belum tersedia.");
+    if(!authResult) {
+        // Jika ternyata authResult kosong, paksa login ulang
+        showAuthButton();
+        return; 
+    }
 
     payBtn.disabled = true;
-    payBtn.innerText = "Membuka Payment...";
-    log("Memproses transaksi...");
+    payBtn.innerText = "Memproses...";
+    log("Membuka jendela pembayaran...");
 
     try {
         const payment = await Pi.createPayment({
             amount: 0.01,
-            memo: "Test Auto-Session Payment",
+            memo: "Payment dengan Scope Valid",
             metadata: { 
                 userId: authResult.user.uid 
             }
         }, {
             onReadyForServerApproval: (paymentId) => {
-                log("✅ Payment ID: " + paymentId + "\nApprove di popup!");
+                log("✅ Siap approve: " + paymentId);
             },
             onCompleted: (paymentId, txid) => {
-                log("🎉 PEMBAYARAN SUKSES!\nTxID: " + txid);
-                payBtn.innerText = "✅ Selesai";
+                log("🎉 SUKSES! TxID: " + txid);
+                payBtn.innerText = "✅ Pembayaran Sukses";
             },
             onCancelled: (paymentId) => {
-                log("⚠️ Dibatalkan user.");
+                log("⚠️ Dibatalkan.");
                 payBtn.disabled = false;
-                payBtn.innerText = "Coba Lagi";
+                payBtn.innerText = "Coba Bayar Lagi";
             },
             onError: (error, payment) => {
                 log("❌ Error: " + error.message);
-                payBtn.disabled = false;
-                payBtn.innerText = "Coba Lagi";
+                
+                // JIKA ERRORNYA MASIH "NO PAYMENT SCOPE", Paksa user login ulang
+                if(error.message.includes("payment scope")) {
+                    log("⚠️ Token lama tidak valid.\nSilakan klik tombol oranye.");
+                    showAuthButton();
+                } else {
+                    payBtn.disabled = false;
+                    payBtn.innerText = "Coba Lagi";
+                }
             }
         });
 
     } catch (error) {
         console.error(error);
-        log("❌ Gagal: " + error.message);
-        payBtn.disabled = false;
-        payBtn.innerText = "Coba Lagi";
+        log("❌ Gagal create payment: " + error.message);
+        
+        // Fallback safety
+        if(error.message.includes("payment scope")) {
+            showAuthButton();
+        } else {
+            payBtn.disabled = false;
+            payBtn.innerText = "Coba Lagi";
+        }
     }
 });
 
