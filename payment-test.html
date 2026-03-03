@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Pi Transaction Test - Challenge #10</title>
+<title>Pi Payment - Auto Session</title>
 
 <!-- Pi SDK -->
 <script src="https://sdk.minepi.com/pi-sdk.js"></script>
@@ -30,8 +30,8 @@ body{
     max-width: 400px;
 }
 
-h2 { margin-top: 0; color: #a78bfa; }
-p { color: #94a3b8; }
+h2 { margin-top: 0; color: #a78bfa; font-size: 1.2rem; }
+p { color: #94a3b8; font-size: 0.9rem; }
 
 button{
     padding:15px 30px;
@@ -48,7 +48,10 @@ button{
 }
 
 button:hover{ background:#5a189a; }
-button:disabled { background:#475569; cursor: not-allowed; }
+button:disabled { background:#475569; cursor: not-allowed; opacity: 0.7; }
+
+.btn-auth { background: #3b82f6; } /* Biru untuk Auth */
+.btn-pay { background: #10b981; } /* Hijau untuk Bayar */
 
 #status{
     margin-top:20px;
@@ -62,29 +65,35 @@ button:disabled { background:#475569; cursor: not-allowed; }
     text-align: left;
     font-family: monospace;
 }
+
+/* Hide elements utility */
+.hidden { display: none !important; }
 </style>
 
 </head>
 <body>
 
 <div class="container">
-<h2>Tantangan #10</h2>
-<p>Test User-to-App Payment</p>
+<h2>Pi Payment Test</h2>
+<p>Session akan mengikuti login sebelumnya.</p>
 
-<button id="authBtn" disabled>1. Login & Auth</button>
-<button id="payBtn" disabled style="background:#10b981;">2. Bayar 0.01 Pi</button>
+<!-- Tombol Auth hanya muncul jika BELUM login -->
+<button id="authBtn" class="btn-auth hidden">1. Sesi Hilang, Login Ulang</button>
 
-<div id="status">Memuat SDK...</div>
+<!-- Tombol Bayar akan aktif jika SUDAH login -->
+<button id="payBtn" class="btn-pay" disabled>2. Bayar 0.01 Pi</button>
+
+<div id="status">Memeriksa sesi login...</div>
 </div>
 
 <script>
 
 /* =========================
-   CONFIG
+   CONFIG & VARS
 ========================= */
-const APP_ID = "26949299605f32"; // Pastikan APP_ID Production
+const APP_ID = "26949299605f32";
 let Pi = window.Pi;
-let authResult = null;
+let authResult = null; // Menampung data user
 
 const statusDiv = document.getElementById("status");
 const authBtn = document.getElementById("authBtn");
@@ -96,40 +105,99 @@ function log(msg) {
 }
 
 /* =========================
-   STEP 1: AUTHENTICATION
+   FUNGSI: CEK SESI (LOGIKA UTAMA)
+========================= */
+function checkSession() {
+    // 1. Cek apakah ada data 'greenproof_user' di localStorage (Disimpan saat login di halaman sebelumnya)
+    const savedUser = localStorage.getItem("greenproof_user");
+
+    if (savedUser) {
+        try {
+            const parsedUser = JSON.parse(savedUser);
+            
+            // 2. Jika ada, kita buat dummy authResult agar SDK mengenali
+            // Kita tidak perlu memanggil Pi.authenticate lagi jika kita hanya butuh data UID/Username
+            authResult = {
+                user: {
+                    uid: parsedUser.uid,
+                    username: parsedUser.username
+                },
+                accessToken: parsedUser.token
+            };
+
+            log(`✅ Sesi Ditemukan!\nHalo, @${authResult.user.username}\nAnda bisa langsung bayar.`);
+            
+            // Aktifkan tombol bayar, sembunyikan tombol login
+            payBtn.disabled = false;
+            payBtn.innerText = "💎 Bayar 0.01 Pi Sekarang";
+            authBtn.classList.add("hidden"); // Sembunyikan tombol login
+
+        } catch (e) {
+            console.error("Gagal parse sesi", e);
+            showLoginButton();
+        }
+    } else {
+        // 3. Jika tidak ada data di localStorage, tampilkan tombol login
+        log("⚠️ Belum ada sesi login.\nSilakan login dulu.");
+        showLoginButton();
+    }
+}
+
+function showLoginButton() {
+    authBtn.classList.remove("hidden");
+    authBtn.disabled = false;
+    payBtn.classList.add("hidden"); // Sembunyikan tombol bayar sampai login
+}
+
+/* =========================
+   INIT SDK
 ========================= */
 window.addEventListener("load", async () => {
     
     if(!Pi) return log("❌ Buka di Pi Browser!");
 
     try {
-        // Init SDK (Pastikan false jika sudah di Production Domain)
+        // Init SDK tetap diperlukan untuk komunikasi dengan Pi Network
         await Pi.init({ version: "2.0", sandbox: false });
         
-        authBtn.disabled = false;
-        log("✅ Siap. Silakan klik '1. Login & Auth'");
+        // Setelah siap, cek apakah user sudah login dari halaman sebelumnya
+        checkSession();
 
     } catch (e) {
         log("❌ Init Error: " + e.message);
     }
 });
 
+/* =========================
+   LOGIN MANUAL (JIKA SESI HILANG)
+========================= */
 authBtn.addEventListener("click", async () => {
     authBtn.disabled = true;
-    authBtn.innerText = "Memproses Auth...";
+    authBtn.innerText = "Menghubungkan...";
     log("Membuka popup autentikasi...");
 
     try {
-        // Authenticate dengan scope payments (WAJIB)
+        // Jika user klik tombol ini, berarti sesi hilang, jadi kita auth ulang
         authResult = await Pi.authenticate(["username", "payments"], {
             onIncompletePaymentFound: (payment) => {
-                log("⚠️ Pembayaran tertunda ditemukan: " + payment.identifier);
+                log("⚠️ Pembayaran tertunda: " + payment.identifier);
             }
         });
 
-        log("✅ Auth Sukses!\nUser: " + authResult.user.username + "\nKlik tombol Bayar (hijau).");
+        // Simpan ulang ke localStorage agar besok tidak perlu login lagi
+        localStorage.setItem("greenproof_user", JSON.stringify({
+            uid: authResult.user.uid,
+            username: authResult.user.username,
+            token: authResult.accessToken
+        }));
+
+        log("✅ Login Sukses!\nUser: " + authResult.user.username);
+        
+        // UI Update
+        authBtn.classList.add("hidden");
+        payBtn.classList.remove("hidden");
         payBtn.disabled = false;
-        authBtn.innerText = "✅ Login Sukses";
+        payBtn.innerText = "💎 Bayar 0.01 Pi Sekarang";
 
     } catch (e) {
         log("❌ Auth Gagal: " + e.message);
@@ -139,22 +207,52 @@ authBtn.addEventListener("click", async () => {
 });
 
 /* =========================
-   STEP 2: TRANSACTION (JAWABAN TANTANGAN #10)
+   STEP 2: TRANSACTION
 ========================= */
 payBtn.addEventListener("click", async () => {
 
-    if(!authResult) return log("❌ Login dulu!");
+    if(!authResult) return log("❌ Data user belum tersedia.");
 
     payBtn.disabled = true;
     payBtn.innerText = "Membuka Payment...";
     log("Memproses transaksi...");
 
     try {
-        // Ini adalah struktur YANG BENAR untuk lolos tantangan #10
         const payment = await Pi.createPayment({
             amount: 0.01,
-            memo: "Tantangan #10 - Uji Coba",
+            memo: "Test Auto-Session Payment",
             metadata: { 
                 userId: authResult.user.uid 
             }
         }, {
+            onReadyForServerApproval: (paymentId) => {
+                log("✅ Payment ID: " + paymentId + "\nApprove di popup!");
+            },
+            onCompleted: (paymentId, txid) => {
+                log("🎉 PEMBAYARAN SUKSES!\nTxID: " + txid);
+                payBtn.innerText = "✅ Selesai";
+            },
+            onCancelled: (paymentId) => {
+                log("⚠️ Dibatalkan user.");
+                payBtn.disabled = false;
+                payBtn.innerText = "Coba Lagi";
+            },
+            onError: (error, payment) => {
+                log("❌ Error: " + error.message);
+                payBtn.disabled = false;
+                payBtn.innerText = "Coba Lagi";
+            }
+        });
+
+    } catch (error) {
+        console.error(error);
+        log("❌ Gagal: " + error.message);
+        payBtn.disabled = false;
+        payBtn.innerText = "Coba Lagi";
+    }
+});
+
+</script>
+
+</body>
+</html>
