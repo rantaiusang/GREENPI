@@ -45,6 +45,7 @@ button:hover{
 #status{
     margin-top:20px;
     font-size:14px;
+    white-space:pre-line;
 }
 </style>
 
@@ -68,37 +69,56 @@ button:hover{
 
 const APP_ID = "26949299605f32";
 let sdkReady = false;
+let userAuthenticated = false;
 
 /* =========================
-   INIT SDK
+   INIT SDK + LOGIN (WAJIB ADA PAYMENTS SCOPE)
 ========================= */
 
 window.addEventListener("load", async () => {
+
+    const status = document.getElementById("status");
+
     try {
 
         const Pi = window.Pi;
         if(!Pi){
-            document.getElementById("status").innerText =
-            "❌ Pi SDK tidak ditemukan (Buka di Pi Browser)";
+            status.innerText =
+            "❌ Pi SDK tidak ditemukan.\nBuka di Pi Browser.";
             return;
         }
 
+        // INIT SDK dengan appId
         await Pi.init({
             version: "2.0",
             sandbox: true
         });
 
-        sdkReady = true;
-        document.getElementById("status").innerText =
-        "✅ SDK Ready";
+        // AUTH DENGAN PAYMENTS SCOPE
+        const auth = await Pi.authenticate(
+            ["username", "payments"],
+            {
+                onIncompletePaymentFound: (payment) => {
+                    console.log("Incomplete Payment:", payment);
+                }
+            }
+        );
 
-        console.log("Pi SDK Ready");
+        console.log("Auth Success:", auth);
+
+        sdkReady = true;
+        userAuthenticated = true;
+
+        status.innerText =
+        "✅ SDK Ready\n✅ Login Sukses\nUser: " +
+        auth.user.username;
 
     } catch(err){
         console.error(err);
-        document.getElementById("status").innerText =
-        "❌ Gagal Init SDK";
+        status.innerText =
+        "❌ Init / Auth Gagal:\n" + err.message;
     }
+
 });
 
 
@@ -108,12 +128,13 @@ window.addEventListener("load", async () => {
 
 document.getElementById("payBtn").addEventListener("click", async () => {
 
-    if(!sdkReady){
-        alert("SDK belum siap");
+    const status = document.getElementById("status");
+
+    if(!sdkReady || !userAuthenticated){
+        alert("Login belum siap");
         return;
     }
 
-    const status = document.getElementById("status");
     status.innerText = "⏳ Memproses pembayaran...";
 
     try {
@@ -121,14 +142,17 @@ document.getElementById("payBtn").addEventListener("click", async () => {
         const payment = await Pi.createPayment({
             amount: 0.01,
             memo: "Test Transaction GreenProof",
-            metadata: {}
+            metadata: {
+                test: true,
+                timestamp: Date.now()
+            }
         });
 
         console.log("Payment Success:", payment);
 
         status.innerText =
-        "✅ Payment Berhasil!\n" +
-        "Payment ID: " + payment.identifier;
+        "✅ Payment Berhasil!\n\n" +
+        "Payment ID:\n" + payment.identifier;
 
     } catch(error){
 
