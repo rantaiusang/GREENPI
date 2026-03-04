@@ -172,18 +172,17 @@ alert("Config tidak ditemukan!");
 throw new Error("APP_CONFIG missing");
 }
 
-console.log("Config Loaded:",window.APP_CONFIG.PI.APP_ID);
+// Debug Cek Window Pi
+console.log("🔍 DEBUG: window.Pi = ", window.Pi);
+console.log("Config Loaded:", window.APP_CONFIG.PI.APP_ID);
 
 /* ===============================
-   SUPABASE INIT (PERBAIKAN)
+   SUPABASE INIT
 ================================*/
-// Mengganti nama variabel dari 'supabase' menjadi '_supabaseClient'
-// untuk menghindari konflik dengan global object dari CDN Supabase.
 let _supabaseClient = null;
 
 if(window.supabase){
 try{
-// Menggunakan window.supabase untuk membuat instance client
 _supabaseClient = window.supabase.createClient(
 window.APP_CONFIG.SUPABASE_URL,
 window.APP_CONFIG.SUPABASE_ANON_KEY
@@ -226,7 +225,7 @@ btnText.innerHTML='<i class="fab fa-pi"></i> Masuk dengan Pi';
 }
 
 /* ===============================
-   PI INIT
+   PI INIT (PERBAIKAN SDK v2.0)
 ================================*/
 let piReady=false;
 
@@ -239,10 +238,11 @@ return false;
 }
 
 try{
+// --- PERBAIKAN DISINI: HAPUS VERSION, PAKAI SANDBOX SAJA ---
 await Pi.init({
-version:window.APP_CONFIG.PI.SDK_VERSION,
-sandbox:window.APP_CONFIG.IS_SANDBOX
+sandbox: window.APP_CONFIG.IS_SANDBOX
 });
+
 piReady=true;
 console.log("Pi Init Success ✅");
 return true;
@@ -291,7 +291,6 @@ const user=authResult.user;
 setStatus("Login berhasil","success");
 
 /* ---- SUPABASE SAVE ---- */
-// Menggunakan _supabaseClient yang sudah diinisialisasi di atas
 if(_supabaseClient){
 
 const {data:existing}=await _supabaseClient
