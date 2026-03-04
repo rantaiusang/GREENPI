@@ -28,7 +28,7 @@ window.APP_CONFIG = {
     PI: {
         // Pastikan APP_ID ini sudah di-approve di Pi Developer Console untuk Platform: Web
         APP_ID: "greenpi-4ff6e4820b8ff1a8", 
-        SDK_VERSION: "2.0",
+       
         SCOPES: ["username", "payments"]
     }
 };
