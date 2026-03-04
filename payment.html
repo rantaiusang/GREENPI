@@ -7,7 +7,8 @@
 
 <!-- 1. LOAD CONFIG DULU -->
 <script src="js/pi-config.js"></script>
-<script src="https://sdk.minepi.com/v2/pi-sdk.js"></script>
+<!-- PERBAIKAN: Pakai URL default SDK (bukan /v2/), agar window.Pi terdeteksi -->
+<script src="https://sdk.minepi.com/pi-sdk.js"></script>
 
 <style>
 body{ font-family: sans-serif; background:#0f172a; color:white; display:flex; justify-content:center; align-items:center; min-height:100vh; margin:0; }
@@ -46,7 +47,6 @@ const IS_SANDBOX = window.APP_CONFIG.IS_SANDBOX;
 
 document.getElementById("app-title").innerText = IS_SANDBOX ? "Sandbox Payment" : "Production Payment";
 
-
 let authResult = null;
 
 const statusDiv = document.getElementById("status");
@@ -59,34 +59,31 @@ function log(msg) {
 }
 
 /* ============================================================
-   INIT SDK
+   INIT SDK (FIXED)
 ============================================================ */
 window.addEventListener("load", async () => {
 
-    let retry = 0;
-
-    while(!window.Pi && retry < 10) {
-        await new Promise(r => setTimeout(r, 300));
-        retry++;
+    // Cek apakah script SDK terbaca
+    if (typeof Pi === 'undefined') {
+        return log("❌ FATAL: Script Pi SDK tidak terbaca.\nCek internet atau buka di Pi Browser.");
     }
-
-    if(!window.Pi) {
-        return log("❌ SDK tidak terdeteksi. Buka dari Pi Browser.");
-    }
-
-    const Pi = window.Pi;
 
     try {
+        // Init dengan parameter yang ada di Config Anda
         await Pi.init({ 
             version: SDK_VERSION, 
             sandbox: IS_SANDBOX
         });
         
+        // Bersihkan session lama
         localStorage.removeItem("greenproof_user");
         
         log(`✅ SDK Ready (${IS_SANDBOX ? 'Sandbox' : 'Mainnet'}).\nLogin untuk mulai.`);
         authBtn.disabled = false;
-    } catch(e) { log("Init Error: " + e.message); }
+    } catch(e) { 
+        log("Init Error: " + e.message); 
+        console.error(e);
+    }
 });
 
 /* ============================================================
@@ -113,7 +110,7 @@ authBtn.addEventListener("click", async () => {
 });
 
 /* ============================================================
-   PAYMENT LOGIC (TEMPAT onIncompletePaymentFound YANG BENAR)
+   PAYMENT LOGIC
 ============================================================ */
 payBtn.addEventListener("click", async () => {
     if(!authResult) return log("❌ Login dulu!");
@@ -183,35 +180,6 @@ payBtn.addEventListener("click", async () => {
             onError: (error, payment) => {
                 log("❌ Error: " + error.message);
                 payBtn.disabled = false;
-            },
-
-            // 5. 🔥 HANDLE INCOMPLETE PAYMENT (SOLUSI UTAMA)
-            onIncompletePaymentFound: async (payment) => {
-                log("⚠️ Payment Macet Ditemukan!\nID: " + payment.identifier);
-                log("🔄 Mencoba menyelesaikan otomatis via Backend...");
-                
-                try {
-                    // Kita coba complete. Jika gagal (misal butuh approve dulu),
-                    // user harus handle manual di wallet, tapi setidaknya kita coba selamatkan.
-                    const res = await fetch(BACKEND_URL, {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({
-                            action: "complete",
-                            paymentId: payment.identifier,
-                            txid: payment.txid || "" 
-                        })
-                    });
-
-                    if(res.ok) {
-                        log("✅ Payment Macet Berhasil Diselesaikan!");
-                        setTimeout(() => location.reload(), 2000);
-                    } else {
-                        log("❌ Gagal auto-complete. Status masih menggantung.");
-                    }
-                } catch (err) {
-                    log("❌ Error saat menyelesaikan payment lama: " + err.message);
-                }
             }
         };
 
