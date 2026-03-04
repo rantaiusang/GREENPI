@@ -162,27 +162,80 @@ display:none;
 
 <script>
 /* ===============================
-   0. VARIABLES & ELEMENTS
+   0. CEK FATAL (LANGSUNG TAHU)
+================================*/
+const statusMsg = document.getElementById("status-msg");
+const btn = document.getElementById("btn-login");
+const btnText = document.getElementById("btn-text");
+
+function showFatalError(msg) {
+    alert("FATAL ERROR: " + msg);
+    statusMsg.innerText = "Error: " + msg;
+    statusMsg.style.color = "red";
+    btn.disabled = true;
+    btnText.innerText = "Gagal";
+}
+
+// Cek Config dalam 3 detik
+let checkCount = 0;
+let configInterval = setInterval(() => {
+    checkCount++;
+    if (window.APP_CONFIG) {
+        clearInterval(configInterval);
+        console.log("Config OK:", window.APP_CONFIG.PI.APP_ID);
+        initAll();
+    } else if (checkCount > 30) { // 3 detik x 10 (100ms)
+        clearInterval(configInterval);
+        showFatalError("File js/pi-config.js TIDAK DITEMUKAN. Cek folder.");
+    }
+}, 100);
+
+/* ===============================
+   1. INIT SEMUA
 ================================*/
 let _supabaseClient = null;
 let piReady = false;
 
-const btn = document.getElementById("btn-login");
-const btnText = document.getElementById("btn-text");
-const statusMsg = document.getElementById("status-msg");
+async function initAll() {
+    // A. Init Supabase
+    if (window.supabase) {
+        try {
+            _supabaseClient = window.supabase.createClient(
+                window.APP_CONFIG.SUPABASE_URL,
+                window.APP_CONFIG.SUPABASE_ANON_KEY
+            );
+            console.log("Supabase OK");
+        } catch (e) { console.warn("Supabase Gagal", e); }
+    }
 
-function setStatus(msg, type = "normal") {
-    statusMsg.innerText = msg;
-    statusMsg.style.color =
-        type === "error" ? "var(--error)" :
-        type === "success" ? "var(--success)" : "#64748b";
+    // B. Init Pi SDK
+    try {
+        if (typeof Pi === 'undefined') {
+            throw new Error("Script Pi SDK tidak terbaca. Cek internet.");
+        }
+        
+        await Pi.init({
+            sandbox: window.APP_CONFIG.IS_SANDBOX === true
+        });
+        
+        piReady = true;
+        console.log("Pi SDK OK");
+    } catch (err) {
+        console.error(err);
+        showFatalError("Pi SDK Gagal: " + err.message);
+    }
 }
 
-function setLoading(state) {
-    if (state) {
+/* ===============================
+   2. LOGIN
+================================*/
+function setLoading(isLoad) {
+    if (isLoad) {
         btn.classList.add("loading");
         btn.disabled = true;
         btnText.innerText = "Memproses...";
+        statusMsg.innerText = "Menghubungkan...";
+        statusMsg.style.color = "#64748b";
     } else {
         btn.classList.remove("loading");
         btn.disabled = false;
@@ -190,173 +243,74 @@ function setLoading(state) {
     }
 }
 
-/* ===============================
-   1. ROBUST CONFIG CHECKER
-================================*/
-// Menggunakan polling untuk menunggu config load, mencegah race condition
-let configCheckInterval = setInterval(() => {
-    if (window.APP_CONFIG) {
-        clearInterval(configCheckInterval);
-        console.log("✅ Config Loaded:", window.APP_CONFIG.PI.APP_ID);
-        initSystem(); // Mulai inisialisasi sistem
-    }
-}, 100);
-
-// Timeout safety: jika config tidak muncul dalam 5 detik
-setTimeout(() => {
-    if (!window.APP_CONFIG) {
-        clearInterval(configCheckInterval);
-        console.error("❌ FATAL: js/pi-config.js tidak ditemukan atau salah path.");
-        setStatus("Error: Konfigurasi hilang (pi-config.js)", "error");
-        btn.disabled = true;
-    }
-}, 5000);
-
-/* ===============================
-   2. INIT SYSTEM (SUPABASE + PI SDK)
-================================*/
-async function initSystem() {
-    // A. Init Supabase
-    if (window.supabase && window.APP_CONFIG.SUPABASE_URL) {
-        try {
-            _supabaseClient = window.supabase.createClient(
-                window.APP_CONFIG.SUPABASE_URL,
-                window.APP_CONFIG.SUPABASE_ANON_KEY
-            );
-            console.log("✅ Supabase Connected");
-        } catch (err) {
-            console.error("❌ Supabase Error:", err);
-        }
-    } else {
-        console.warn("⚠️ Supabase library belum load");
-    }
-
-    // B. Init Pi SDK
-    await initPi();
-}
-
-async function initPi() {
-    if (piReady) return true;
-
-    // Cek apakah object Pi ada di window
-    if (typeof Pi === 'undefined') {
-        console.error("❌ Pi SDK tidak ditemukan di window. Cek koneksi atau CDN.");
-        setStatus("Gagal memuat Pi SDK. Cek koneksi internet.", "error");
-        return false;
-    }
-
-    try {
-        // Pastikan IS_SANDBOX bernilai boolean
-        const sandboxMode = window.APP_CONFIG.IS_SANDBOX === true;
-
-        // Perbaikan: Hanya kirim parameter sandbox untuk SDK v2.0
-        await Pi.init({
-            sandbox: sandboxMode
-        });
-
-        piReady = true;
-        console.log("✅ Pi Init Success");
-        return true;
-    } catch (err) {
-        console.error("❌ Pi Init Failed:", err);
-        setStatus("Inisialisasi Pi Gagal: " + err.message, "error");
-        return false;
-    }
-}
-
-/* ===============================
-   3. LOGIN HANDLER
-================================*/
 btn.addEventListener("click", async () => {
-    // Validasi Config sebelum klik
-    if(!window.APP_CONFIG) {
-        setStatus("Config belum dimuat. Refresh halaman.", "error");
+    if (!window.APP_CONFIG) {
+        alert("Config belum siap!");
         return;
     }
 
-    setStatus("Menghubungkan ke Pi Network...");
     setLoading(true);
 
-    // Pastikan Pi siap
-    const ready = await initPi();
-    if (!ready) {
-        setStatus("Pi SDK tidak siap. Cek Console.", "error");
-        setLoading(false);
-        return;
+    // Cek Ulang Pi Ready
+    if (!piReady || typeof Pi === 'undefined') {
+        try {
+            // Coba force init 1x lagi
+            await Pi.init({ sandbox: window.APP_CONFIG.IS_SANDBOX === true });
+            piReady = true;
+        } catch (e) {
+            setLoading(false);
+            alert("Pi SDK TIDAK SIAP: " + e.message);
+            return;
+        }
     }
 
     try {
-        console.log("🚀 Memulai autentikasi...");
-        
-        // Panggil Authenticate
         const authResult = await Pi.authenticate(
             window.APP_CONFIG.PI.SCOPES,
             {
-                onIncompletePaymentFound: (payment) => {
-                    console.log("Payment tertunda ditemukan:", payment);
-                }
+                onIncompletePaymentFound: (payment) => console.log(payment)
             }
         );
 
-        // Validasi Hasil
-        if (!authResult || !authResult.user) {
-            throw new Error("Login dibatalkan oleh user atau data kosong.");
-        }
+        if (!authResult || !authResult.user) throw new Error("Login batal");
 
         const user = authResult.user;
-        console.log("✅ Login Berhasil:", user);
-        setStatus("Login Berhasil!", "success");
+        statusMsg.innerText = "Login Berhasil!";
+        statusMsg.style.color = "var(--success)";
 
-        // --- SIMPAN KE SUPABASE ---
+        // Simpan ke Supabase
         if (_supabaseClient) {
-            try {
-                // Cek user existing
-                const { data: existing, error: checkError } = await _supabaseClient
-                    .from("users")
-                    .select("*")
-                    .eq("wallet_address", user.uid)
-                    .maybeSingle();
+            const { data: existing } = await _supabaseClient
+                .from("users")
+                .select("*")
+                .eq("wallet_address", user.uid)
+                .maybeSingle();
 
-                if (checkError) throw checkError;
-
-                // Insert jika belum ada
-                if (!existing) {
-                    const { error: insertError } = await _supabaseClient.from("users").insert([{
-                        username: user.username || "Pioneer",
-                        wallet_address: user.uid,
-                        created_at: new Date()
-                    }]);
-                    
-                    if (insertError) {
-                        console.warn("Gagal simpan ke DB, tapi lanjut login local:", insertError.message);
-                    } else {
-                        console.log("✅ User tersimpan ke Database");
-                    }
-                } else {
-                    console.log("ℹ️ User sudah terdaftar");
-                }
-            } catch (dbErr) {
-                console.error("Database Error:", dbErr);
-                // Kita tidak block login jika DB error, biarkan user masuk lewat local session
+            if (!existing) {
+                await _supabaseClient.from("users").insert([{
+                    username: user.username || "Pioneer",
+                    wallet_address: user.uid,
+                    created_at: new Date()
+                }]);
             }
         }
 
-        // --- SIMPAN LOCAL SESSION ---
+        // Local Session
         localStorage.setItem("greenproof_user", JSON.stringify({
             uid: user.uid,
             username: user.username,
             token: authResult.accessToken
         }));
 
-        // Redirect
         setTimeout(() => {
             window.location.href = "dashboard.html";
-        }, 1500);
+        }, 1000);
 
     } catch (err) {
-        console.error("❌ Login Process Error:", err);
-        setStatus("Error: " + err.message, "error");
+        console.error(err);
         setLoading(false);
+        statusMsg.innerText = "Error: " + err.message;
+        statusMsg.style.color = "red";
     }
 });
 
