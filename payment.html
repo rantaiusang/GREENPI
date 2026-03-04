@@ -59,26 +59,24 @@ function log(msg) {
 }
 
 /* ============================================================
-   INIT SDK (FIXED)
+   INIT SDK
 ============================================================ */
 window.addEventListener("load", async () => {
 
-    // Cek apakah script SDK terbaca
     if (typeof Pi === 'undefined') {
         return log("❌ FATAL: Script Pi SDK tidak terbaca.\nCek internet atau buka di Pi Browser.");
     }
 
     try {
-        // Init dengan parameter yang ada di Config Anda
         await Pi.init({ 
             version: SDK_VERSION, 
             sandbox: IS_SANDBOX
         });
         
-        // Bersihkan session lama
+        // Hapus session lama agar fresh
         localStorage.removeItem("greenproof_user");
         
-        log(`✅ SDK Ready (${IS_SANDBOX ? 'Sandbox' : 'Mainnet'}).\nLogin untuk mulai.`);
+        log(`✅ SDK Ready (${IS_SANDBOX ? 'Sandbox' : 'Mainnet'}).\nSilakan Login.`);
         authBtn.disabled = false;
     } catch(e) { 
         log("Init Error: " + e.message); 
@@ -103,11 +101,66 @@ authBtn.addEventListener("click", async () => {
         log("✅ Login OK!\nUser: " + authResult.user.username);
         payBtn.disabled = false;
         authBtn.innerText = "✅ Siap";
+
+        // 🔥 SETELAH LOGIN SUKSES, BARU KITA CEK PEMBAYARAN MENGANTUNG
+        await resolvePendingPayments();
+
     } catch(e) { 
         log("Auth Gagal: " + e.message); 
         authBtn.disabled = false; 
     }
 });
+
+/* ============================================================
+   FUNGSI MENYELESAIKAN PEMBAYARAN MENGANTUNG
+============================================================ */
+async function resolvePendingPayments() {
+    log("🔍 Memeriksa pembayaran tertunda...");
+    
+    try {
+        // Kita coba buat payment dummy untuk memicu deteksi onIncompletePaymentFound
+        await Pi.createPayment({
+            amount: 0.01,
+            memo: "Check_Pending",
+            metadata: { check: true }
+        }, {
+            // Ini trigger jika ada payment yang macet di server
+            onIncompletePaymentFound: async (payment) => {
+                log("⚠️ ADA PEMBAYARAN MENGANTUNG!\nID: " + payment.identifier);
+                log("🔄 Mencoba menyelesaikan otomatis...");
+                
+                try {
+                    const res = await fetch(BACKEND_URL, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            action: "complete",
+                            paymentId: payment.identifier,
+                            txid: payment.transaction_id || null 
+                        })
+                    });
+
+                    if(res.ok) {
+                        log("✅ PEMBAYARAN MENGANTUNG BERHASIL DISELESAIKAN!");
+                        setTimeout(() => location.reload(), 2000);
+                    } else {
+                        log("❌ Gagal menyelesaikan pending.");
+                    }
+                } catch (err) {
+                    log("❌ Error: " + err.message);
+                }
+            },
+            onError: (err) => {
+                // Abaikan error karena ini cuma pengecekan
+                console.log("Pengecekan selesai, tidak ada pending payment.");
+            }
+        });
+
+    } catch (error) {
+        // Abaikan error cancelled saat pengecekan
+        console.log("Check Pending Flow Done");
+    }
+}
 
 /* ============================================================
    PAYMENT LOGIC
@@ -120,10 +173,8 @@ payBtn.addEventListener("click", async () => {
     try {
         const paymentCallbacks = {
             
-            // 1. APPROVE
             onReadyForServerApproval: async (paymentId) => {
-                log("✅ User Approved.\nMenghubungi Backend (APPROVE)...");
-                
+                log("✅ User Approved.\nMenghubungi Backend...");
                 try {
                     const res = await fetch(BACKEND_URL, {
                         method: "POST",
@@ -131,10 +182,7 @@ payBtn.addEventListener("click", async () => {
                             "Content-Type": "application/json",
                             "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxyemFpZnRkaWtjamVodGxid2xnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE2NzU0MzgsImV4cCI6MjA4NzI1MTQzOH0.TWD0Te1E7ELpBBrmWapvjZKyqvWerxl90vtmyvucNFc"
                         },
-                        body: JSON.stringify({ 
-                            paymentId, 
-                            action: "approve"
-                        })
+                        body: JSON.stringify({ paymentId, action: "approve" })
                     });
                     
                     if(!res.ok) throw new Error("Backend Approve Gagal");
@@ -144,10 +192,8 @@ payBtn.addEventListener("click", async () => {
                 }
             },
 
-            // 2. COMPLETE
             onReadyForServerCompletion: async (paymentId, txid) => {
                 log("🔄 Menghubungi Backend (COMPLETE)...");
-                
                 try {
                     const res = await fetch(BACKEND_URL, {
                         method: "POST",
@@ -155,11 +201,7 @@ payBtn.addEventListener("click", async () => {
                             "Content-Type": "application/json",
                             "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxyemFpZnRkaWtjamVodGxid2xnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE2NzU0MzgsImV4cCI6MjA4NzI1MTQzOH0.TWD0Te1E7ELpBBrmWapvjZKyqvWerxl90vtmyvucNFc"
                         },
-                        body: JSON.stringify({ 
-                            paymentId, 
-                            action: "complete",
-                            txid: txid 
-                        })
+                        body: JSON.stringify({ paymentId, action: "complete", txid: txid })
                     });
                     
                     if(!res.ok) throw new Error("Backend Complete Gagal");
@@ -170,13 +212,11 @@ payBtn.addEventListener("click", async () => {
                 }
             },
 
-            // 3. CANCEL
             onCancel: (paymentId) => {
                 log("⚠️ Dibatalkan User.");
                 payBtn.disabled = false;
             },
 
-            // 4. ERROR
             onError: (error, payment) => {
                 log("❌ Error: " + error.message);
                 payBtn.disabled = false;
