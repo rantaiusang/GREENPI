@@ -7,7 +7,6 @@
 
 <!-- 1. LOAD CONFIG DULU -->
 <script src="js/pi-config.js"></script>
-<!-- PERBAIKAN: Pakai URL default SDK (bukan /v2/), agar window.Pi terdeteksi -->
 <script src="https://sdk.minepi.com/pi-sdk.js"></script>
 
 <style>
@@ -40,6 +39,7 @@ if(!window.APP_CONFIG) {
 }
 
 const BACKEND_URL = "https://lrzaiftdikcjehtlbwlg.supabase.co/functions/v1/handle-payment"; 
+const AUTH_TOKEN = "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxyemFpZnRkaWtjamVodGxid2xnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE2NzU0MzgsImV4cCI6MjA4NzI1MTQzOH0.TWD0Te1E7ELpBBrmWapvjZKyqvWerxl90vtmyvucNFc";
 
 const APP_ID = window.APP_CONFIG.PI.APP_ID;
 const SDK_VERSION = window.APP_CONFIG.PI.SDK_VERSION;
@@ -48,6 +48,7 @@ const IS_SANDBOX = window.APP_CONFIG.IS_SANDBOX;
 document.getElementById("app-title").innerText = IS_SANDBOX ? "Sandbox Payment" : "Production Payment";
 
 let authResult = null;
+let isCheckingPending = false;
 
 const statusDiv = document.getElementById("status");
 const authBtn = document.getElementById("authBtn");
@@ -62,9 +63,8 @@ function log(msg) {
    INIT SDK
 ============================================================ */
 window.addEventListener("load", async () => {
-
     if (typeof Pi === 'undefined') {
-        return log("❌ FATAL: Script Pi SDK tidak terbaca.\nCek internet atau buka di Pi Browser.");
+        return log("❌ FATAL: Script Pi SDK tidak terbaca.");
     }
 
     try {
@@ -73,14 +73,11 @@ window.addEventListener("load", async () => {
             sandbox: IS_SANDBOX
         });
         
-        // Hapus session lama agar fresh
         localStorage.removeItem("greenproof_user");
-        
-        log(`✅ SDK Ready (${IS_SANDBOX ? 'Sandbox' : 'Mainnet'}).\nSilakan Login.`);
+        log(`✅ SDK Ready (${IS_SANDBOX ? 'Sandbox' : 'Mainnet'}).`);
         authBtn.disabled = false;
     } catch(e) { 
         log("Init Error: " + e.message); 
-        console.error(e);
     }
 });
 
@@ -89,6 +86,8 @@ window.addEventListener("load", async () => {
 ============================================================ */
 authBtn.addEventListener("click", async () => {
     authBtn.disabled = true;
+    log("🔐 Melakukan Login...");
+    
     try {
         authResult = await Pi.authenticate(window.APP_CONFIG.PI.SCOPES);
         
@@ -102,7 +101,7 @@ authBtn.addEventListener("click", async () => {
         payBtn.disabled = false;
         authBtn.innerText = "✅ Siap";
 
-        // 🔥 SETELAH LOGIN SUKSES, BARU KITA CEK PEMBAYARAN MENGANTUNG
+        // Cek Pending Payment
         await resolvePendingPayments();
 
     } catch(e) { 
@@ -112,63 +111,67 @@ authBtn.addEventListener("click", async () => {
 });
 
 /* ============================================================
-   FUNGSI MENYELESAIKAN PEMBAYARAN MENGANTUNG
+   FUNGSI KHUSUS: SELESAIKAN PEMBAYARAN MENGANTUNG
 ============================================================ */
 async function resolvePendingPayments() {
+    if(isCheckingPending) return;
+    isCheckingPending = true;
     log("🔍 Memeriksa pembayaran tertunda...");
-    
+
     try {
-        // Kita coba buat payment dummy untuk memicu deteksi onIncompletePaymentFound
         await Pi.createPayment({
             amount: 0.01,
             memo: "Check_Pending",
             metadata: { check: true }
         }, {
-            // Ini trigger jika ada payment yang macet di server
             onIncompletePaymentFound: async (payment) => {
-                log("⚠️ ADA PEMBAYARAN MENGANTUNG!\nID: " + payment.identifier);
-                log("🔄 Mencoba menyelesaikan otomatis...");
+                log("⚠️ DITEMUKAN PEMBAYARAN MACET!\nID: " + payment.identifier);
+                log("🔄 Sedang memaksa selesaikan...");
                 
                 try {
+                    // 🔥 KIRIM isSandbox AGAR BACKEND PAKAI API KEY YANG BENAR
                     const res = await fetch(BACKEND_URL, {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
                         body: JSON.stringify({
                             action: "complete",
                             paymentId: payment.identifier,
-                            txid: payment.transaction_id || null 
+                            txid: payment.transaction_id || null,
+                            isSandbox: IS_SANDBOX // <--- PENTING
                         })
                     });
 
                     if(res.ok) {
-                        log("✅ PEMBAYARAN MENGANTUNG BERHASIL DISELESAIKAN!");
+                        log("✅ BERHASIL MEMBUNUH PEMBAYARAN MACET!");
+                        alert("Pembayaran tertunda telah diselesaikan.");
                         setTimeout(() => location.reload(), 2000);
                     } else {
-                        log("❌ Gagal menyelesaikan pending.");
+                        log("❌ Gagal membersihkan payment macet di server.");
                     }
                 } catch (err) {
                     log("❌ Error: " + err.message);
                 }
             },
-            onError: (err) => {
-                // Abaikan error karena ini cuma pengecekan
-                console.log("Pengecekan selesai, tidak ada pending payment.");
-            }
+            onError: (err) => { console.log("✅ Tidak ada payment mengantung."); },
+            onCancel: (paymentId) => { console.log("✅ Pengecekan selesai (Cancel)."); }
         });
 
     } catch (error) {
-        // Abaikan error cancelled saat pengecekan
-        console.log("Check Pending Flow Done");
+        console.log("Flow Pengecekan Selesai");
+    } finally {
+        isCheckingPending = false;
     }
 }
 
 /* ============================================================
-   PAYMENT LOGIC
+   PAYMENT LOGIC (BUAT BARU)
 ============================================================ */
 payBtn.addEventListener("click", async () => {
     if(!authResult) return log("❌ Login dulu!");
+    if(isCheckingPending) return log("⚠️ Masih mengecek payment lama... tunggu bentar.");
+    
     payBtn.disabled = true;
-    log("🔄 Memulai Transaksi...");
+    log("🔄 Memulai Transaksi Baru...");
 
     try {
         const paymentCallbacks = {
@@ -180,13 +183,18 @@ payBtn.addEventListener("click", async () => {
                         method: "POST",
                         headers: { 
                             "Content-Type": "application/json",
-                            "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxyemFpZnRkaWtjamVodGxid2xnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE2NzU0MzgsImV4cCI6MjA4NzI1MTQzOH0.TWD0Te1E7ELpBBrmWapvjZKyqvWerxl90vtmyvucNFc"
+                            "Authorization": AUTH_TOKEN
                         },
-                        body: JSON.stringify({ paymentId, action: "approve" })
+                        // 🔥 KIRIM isSandbox UNTUK APPROVE JUGA
+                        body: JSON.stringify({ 
+                            paymentId, 
+                            action: "approve",
+                            isSandbox: IS_SANDBOX 
+                        })
                     });
                     
                     if(!res.ok) throw new Error("Backend Approve Gagal");
-                    log("✅ Backend Approve Sukses!\nMenunggu completion...");
+                    log("✅ Backend Approve Sukses!");
                 } catch (err) {
                     log("❌ Error Approve: " + err.message);
                 }
@@ -199,9 +207,15 @@ payBtn.addEventListener("click", async () => {
                         method: "POST",
                         headers: { 
                             "Content-Type": "application/json",
-                            "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxyemFpZnRkaWtjamVodGxid2xnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE2NzU0MzgsImV4cCI6MjA4NzI1MTQzOH0.TWD0Te1E7ELpBBrmWapvjZKyqvWerxl90vtmyvucNFc"
+                            "Authorization": AUTH_TOKEN
                         },
-                        body: JSON.stringify({ paymentId, action: "complete", txid: txid })
+                        // 🔥 KIRIM isSandbox UNTUK COMPLETE
+                        body: JSON.stringify({ 
+                            paymentId, 
+                            action: "complete", 
+                            txid: txid,
+                            isSandbox: IS_SANDBOX 
+                        })
                     });
                     
                     if(!res.ok) throw new Error("Backend Complete Gagal");
@@ -213,19 +227,19 @@ payBtn.addEventListener("click", async () => {
             },
 
             onCancel: (paymentId) => {
-                log("⚠️ Dibatalkan User.");
+                log("⚠️ Transaksi Dibatalkan User.");
                 payBtn.disabled = false;
             },
 
             onError: (error, payment) => {
-                log("❌ Error: " + error.message);
+                log("❌ Error Transaksi: " + error.message);
                 payBtn.disabled = false;
             }
         };
 
         const payment = await Pi.createPayment({
             amount: 0.01,
-            memo: "Absolute Final Test",
+            memo: "Pembayaran Baru",
             metadata: { 
                 userId: authResult.user.uid,
                 username: authResult.user.username,
@@ -239,5 +253,6 @@ payBtn.addEventListener("click", async () => {
     }
 });
 </script>
+   
 </body>
 </html>
