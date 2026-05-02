@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Kontak — TIGAN</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --yellow: #FFC300;
+      --yellow-light: #FFF3CC;
+      --yellow-glow: rgba(255, 195, 0, 0.3);
+      --brown: #8B6914;
+      --brown-dark: #5C4510;
+      --brown-light: #D4A853;
+      --cream: #FFF9EC;
+      --white: #FFFFFF;
+      --gray-50: #FAFAFA;
+      --gray-100: #F5F5F5;
+      --gray-200: #E5E5E5;
+      --gray-300: #D4D4D4;
+      --gray-400: #A3A3A3;
+      --gray-500: #737373;
+      --gray-600: #525252;
+      --gray-700: #404040;
+      --gray-800: #262626;
+      --gray-900: #171717;
+      --green-wa: #25D366;
+      --shadow-sm: 0 1px 2px rgba(0,0,0,0.05);
+      --shadow-md: 0 4px 12px rgba(0,0,0,0.08);
+      --shadow-lg: 0 8px 30px rgba(0,0,0,0.1);
+      --radius-sm: 8px;
+      --radius-md: 12px;
+      --radius-lg: 16px;
+      --radius-xl: 24px;
+      --radius-full: 9999px;
+    }
+
+    html { scroll-behavior: smooth; -webkit-font-smoothing: antialiased; }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      color: var(--gray-800);
+      background: var(--white);
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+
+    .container { max-width: 1120px; margin: 0 auto; padding: 0 20px; }
+
+    /* ==================== REVEAL ==================== */
+    .reveal {
+      opacity: 0;
+      transform: translateY(20px);
+      transition: opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1),
+                  transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .reveal.visible { opacity: 1; transform: translateY(0); }
+    .reveal-delay-1 { transition-delay: 0.1s; }
+    .reveal-delay-2 { transition-delay: 0.2s; }
+    .reveal-delay-3 { transition-delay: 0.3s; }
+    .reveal-delay-4 { transition-delay: 0.4s; }
+
+    @media (max-width: 768px) {
+      .reveal { transition-duration: 0.6s; }
+    }
+
+    /* ==================== NAVBAR ==================== */
+    .navbar {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 1000;
+      padding: 16px 0;
+      background: rgba(255,255,255,0.92);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border-bottom: 1px solid rgba(0,0,0,0.06);
+      box-shadow: var(--shadow-sm);
+    }
+    .navbar .container { display: flex; align-items: center; justify-content: space-between; }
+    .logo {
+      display: flex; align-items: center; gap: 10px;
+      text-decoration: none; color: var(--gray-900);
+    }
+    .logo-icon {
+      width: 44px; height: 44px;
+      background: transparent; box-shadow: none;
+      border-radius: 10px; overflow: hidden; flex-shrink: 0;
+    }
+    .logo-icon img {
+      width: 100%; height: 100%;
+      object-fit: contain; display: block;
+    }
+    .logo-text { font-weight: 800; font-size: 22px; letter-spacing: -0.5px; }
+    .nav-back {
+      display: inline-flex; align-items: center; gap: 6px;
+      font-size: 14px; color: var(--gray-500); text-decoration: none;
+      font-weight: 500; transition: color 0.2s;
+    }
+    .nav-back:hover { color: var(--gray-900); }
+    .nav-back .material-symbols-rounded { font-size: 18px; }
+
+    /* ==================== PAGE HEADER ==================== */
+    .page-header {
+      padding: 140px 0 60px;
+      background: var(--gray-50);
+      border-bottom: 1px solid var(--gray-100);
+    }
+    .page-header h1 {
+      font-size: clamp(28px, 4vw, 40px);
+      font-weight: 800; letter-spacing: -1px;
+      color: var(--gray-900); margin-bottom: 12px;
+    }
+    .page-header p { font-size: 17px; color: var(--gray-500); max-width: 480px; }
+
+    /* ==================== CONTACT GRID ==================== */
+    .contact-section { padding: 80px 0; }
+    .contact-grid {
+      display: grid; grid-template-columns: 1fr 1fr;
+      gap: 48px; align-items: start;
+    }
+
+    /* Info Cards */
+    .contact-info-list { display: flex; flex-direction: column; gap: 16px; }
+    .contact-info-card {
+      display: flex; align-items: center; gap: 16px;
+      padding: 24px;
+      background: var(--gray-50);
+      border-radius: var(--radius-lg);
+      border: 1px solid var(--gray-100);
+      transition: all 0.3s ease;
+      text-decoration: none; color: inherit;
+    }
+    .contact-info-card:hover {
+      background: var(--yellow-light);
+      border-color: rgba(255,195,0,0.2);
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-md);
+    }
+    .contact-info-icon {
+      width: 48px; height: 48px; border-radius: var(--radius-md);
+      background: var(--white);
+      border: 1px solid var(--gray-200);
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+      transition: all 0.3s ease;
+    }
+    .contact-info-card:hover .contact-info-icon {
+      background: var(--yellow);
+      border-color: var(--yellow);
+    }
+    .contact-info-icon .material-symbols-rounded {
+      font-size: 22px; color: var(--gray-600);
+      transition: color 0.3s ease;
+    }
+    .contact-info-card:hover .contact-info-icon .material-symbols-rounded { color: var(--white); }
+    .contact-info-text h3 {
+      font-size: 15px; font-weight: 700; color: var(--gray-900); margin-bottom: 2px;
+    }
+    .contact-info-text p { font-size: 14px; color: var(--gray-500); line-height: 1.4; }
+    .contact-info-text a { color: var(--gray-600); text-decoration: none; font-weight: 500; }
+    .contact-info-text a:hover { color: var(--brown); }
+
+    /* WA CTA */
+    .contact-wa-cta {
+      margin-top: 24px;
+      padding: 32px;
+      background: linear-gradient(135deg, #E8F8EE, #D1FAE5);
+      border: 1px solid rgba(37,211,102,0.2);
+      border-radius: var(--radius-lg);
+      text-align: center;
+    }
+    .contact-wa-cta h3 {
+      font-size: 18px; font-weight: 700; color: var(--gray-900); margin-bottom: 8px;
+    }
+    .contact-wa-cta p { font-size: 14px; color: var(--gray-500); margin-bottom: 20px; }
+    .btn-wa {
+      display: inline-flex; align-items: center; gap: 10px;
+      padding: 14px 32px;
+      background: var(--green-wa); color: var(--white);
+      border: none; border-radius: var(--radius-full);
+      font-family: 'Inter', sans-serif; font-weight: 700; font-size: 15px;
+      cursor: pointer; text-decoration: none;
+      transition: all 0.3s ease;
+      box-shadow: 0 4px 20px rgba(37,211,102,0.3);
+    }
+    .btn-wa:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 28px rgba(37,211,102,0.45);
+    }
+    .btn-wa .material-symbols-rounded { font-size: 20px; }
+
+    /* ==================== FORM ==================== */
+    .contact-form-wrap {
+      background: var(--white);
+      border: 1px solid var(--gray-200);
+      border-radius: var(--radius-xl);
+      padding: 36px;
+      box-shadow: var(--shadow-sm);
+    }
+    .contact-form-wrap h2 {
+      font-size: 20px; font-weight: 700; color: var(--gray-900);
+      margin-bottom: 6px;
+    }
+    .form-subtitle {
+      font-size: 13px; color: var(--gray-400); margin-bottom: 24px;
+    }
+    .form-group { margin-bottom: 20px; }
+    .form-group label {
+      display: block;
+      font-size: 13px; font-weight: 600; color: var(--gray-700);
+      margin-bottom: 8px;
+    }
+    .form-group input,
+    .form-group textarea {
+      width: 100%;
+      padding: 12px 16px;
+      border: 1px solid var(--gray-200);
+      border-radius: var(--radius-md);
+      font-family: 'Inter', sans-serif;
+      font-size: 14px; color: var(--gray-800);
+      background: var(--white);
+      transition: all 0.2s ease;
+      outline: none;
+    }
+    .form-group input:focus,
+    .form-group textarea:focus {
+      border-color: var(--yellow);
+      box-shadow: 0 0 0 3px var(--yellow-glow);
+    }
+    .form-group input::placeholder,
+    .form-group textarea::placeholder { color: var(--gray-400); }
+    .form-group textarea { resize: vertical; min-height: 120px; }
+
+    /* Hidden field untuk email reply-to */
+    .form-group._email_reply { display: none; }
+
+    .btn-submit {
+      display: flex; align-items: center; justify-content: center;
+      gap: 8px; width: 100%;
+      padding: 14px 24px;
+      background: var(--gray-900); color: var(--white);
+      border: none; border-radius: var(--radius-full);
+      font-family: 'Inter', sans-serif; font-weight: 600; font-size: 15px;
+      cursor: pointer; transition: all 0.3s ease;
+    }
+    .btn-submit:hover {
+      background: var(--gray-700);
+      transform: translateY(-1px);
+      box-shadow: var(--shadow-md);
+    }
+    .btn-submit:disabled {
+      opacity: 0.6; cursor: not-allowed;
+      transform: none; box-shadow: none;
+    }
+    .btn-submit .material-symbols-rounded { font-size: 18px; }
+
+    /* Success / Error States */
+    .form-message {
+      margin-top: 16px;
+      padding: 14px 18px;
+      border-radius: var(--radius-md);
+      font-size: 14px; font-weight: 500;
+      display: none;
+    }
+    .form-message.success {
+      display: block;
+      background: #E8F8EE;
+      color: #16A34A;
+      border: 1px solid rgba(22,163,74,0.2);
+    }
+    .form-message.error {
+      display: block;
+      background: #FEF2F2;
+      color: var(--red);
+      border: 1px solid rgba(239,68,68,0.2);
+    }
+    .form-message .material-symbols-rounded {
+      font-size: 18px; vertical-align: middle;
+      margin-right: 6px;
+      font-variation-settings: 'FILL' 1;
+    }
+
+    /* ==================== FOOTER ==================== */
+    .footer {
+      padding: 40px 0; background: var(--gray-900);
+      border-top: 1px solid rgba(255,255,255,0.06);
+    }
+    .footer .container {
+      display: flex; align-items: center; justify-content: space-between;
+      flex-wrap: wrap; gap: 16px;
+    }
+    .footer-logo { display: flex; align-items: center; gap: 10px; text-decoration: none; }
+    .footer-logo .logo-icon { width: 32px; height: 32px; }
+    .footer-logo span { font-weight: 700; font-size: 18px; color: var(--white); }
+    .footer-text { font-size: 13px; color: var(--gray-500); }
+    .footer-links { display: flex; gap: 24px; }
+    .footer-links a {
+      font-size: 13px; color: var(--gray-400);
+      text-decoration: none; transition: color 0.2s;
+    }
+    .footer-links a:hover { color: var(--white); }
+
+    /* ==================== RESPONSIVE ==================== */
+    @media (max-width: 768px) {
+      .contact-grid { grid-template-columns: 1fr; gap: 32px; }
+      .page-header { padding: 120px 0 48px; }
+      .page-header h1 { font-size: 26px; }
+      .contact-form-wrap { padding: 24px; }
+      .footer .container { flex-direction: column; text-align: center; }
+      .footer-links { justify-content: center; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- NAVBAR -->
+  <nav class="navbar">
+    <div class="container">
+      <a href="index.html" class="logo">
+        <div class="logo-icon">
+          <img src="https://i.imgur.com/XuZ59qq.png" alt="TIGAN Logo">
+        </div>
+        <span class="logo-text">TIGAN</span>
+      </a>
+      <a href="index.html" class="nav-back">
+        <span class="material-symbols-rounded">arrow_back</span>
+        Kembali
+      </a>
+    </div>
+  </nav>
+
+  <!-- PAGE HEADER -->
+  <section class="page-header">
+    <div class="container">
+      <h1>Hubungi Kami</h1>
+      <p>Punya pertanyaan atau ingin order dalam jumlah besar? Kami siap membantu.</p>
+    </div>
+  </section>
+
+  <!-- CONTACT -->
+  <section class="contact-section">
+    <div class="container">
+      <div class="contact-grid">
+
+        <!-- LEFT: Info -->
+        <div class="reveal">
+          <div class="contact-info-list">
+            <a href="https://wa.me/62816253606" target="_blank" class="contact-info-card">
+              <div class="contact-info-icon">
+                <span class="material-symbols-rounded">chat</span>
+              </div>
+              <div class="contact-info-text">
+                <h3>WhatsApp</h3>
+                <p>0816-2536-06</p>
+              </div>
+            </a>
+            <a href="mailto:halo@tigan.id" class="contact-info-card">
+              <div class="contact-info-icon">
+                <span class="material-symbols-rounded">mail</span>
+              </div>
+              <div class="contact-info-text">
+                <h3>Email</h3>
+                <p>halo@tigan.id</p>
+              </div>
+            </a>
+            <a href="tel:+62816253606" class="contact-info-card">
+              <div class="contact-info-icon">
+                <span class="material-symbols-rounded">call</span>
+              </div>
+              <div class="contact-info-text">
+                <h3>Telepon</h3>
+                <p>0816-2536-06</p>
+              </div>
+            </a>
+            <div class="contact-info-card">
+              <div class="contact-info-icon">
+                <span class="material-symbols-rounded">schedule</span>
+              </div>
+              <div class="contact-info-text">
+                <h3>Jam Operasional</h3>
+                <p>Senin – Sabtu, 06.00 – 17.00 WIB</p>
+              </div>
+            </div>
+            <div class="contact-info-card">
+              <div class="contact-info-icon">
+                <span class="material-symbols-rounded">location_on</span>
+              </div>
+              <div class="contact-info-text">
+                <h3>Lokasi Peternakan</h3>
+                <p>Jawa Barat, Indonesia</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="contact-wa-cta">
+            <h3>Cara Tercepat Menghubungi Kami</h3>
+            <p>Klik tombol di bawah untuk langsung chat via WhatsApp. Respon cepat!</p>
+            <a href="https://wa.me/62816253606?text=Halo%20TIGAN%2C%20saya%20ingin%20bertanya" target="_blank" class="btn-wa">
+              <span class="material-symbols-rounded">chat</span>
+              Chat WhatsApp
+            </a>
+          </div>
+        </div>
+
+        <!-- RIGHT: Form -->
+        <div class="contact-form-wrap reveal reveal-delay-2">
+          <h2>Kirim Pesan</h2>
+          <p class="form-subtitle">Pesan Anda akan dikirim ke halo@tigan.id</p>
+
+          <form id="contactForm" action="https://formspree.io/f/xpwdkqpl" method="POST">
+            <!-- Hidden: reply-to agar kamu bisa reply langsung ke email user -->
+            <div class="form-group _email_reply">
+              <input type="email" name="_replyto" tabindex="-1" autocomplete="off">
+            </div>
+
+            <!-- Hidden: email subject dari Formspree -->
+            <input type="hidden" name="_subject" value="Pesan Baru dari Website TIGAN">
+
+            <div class="form-group">
+              <label for="name">Nama Lengkap</label>
+              <input type="text" id="name" name="name" placeholder="Masukkan nama Anda" required>
+            </div>
+            <div class="form-group">
+              <label for="email">Email Anda</label>
+              <input type="email" id="email" name="email" placeholder="contoh@email.com" required>
+            </div>
+            <div class="form-group">
+              <label for="phone">Nomor WhatsApp</label>
+              <input type="tel" id="phone" name="phone" placeholder="Contoh: 08123456789" required>
+            </div>
+            <div class="form-group">
+              <label for="subject">Subjek</label>
+              <input type="text" id="subject" name="subject" placeholder="Pemesanan, pertanyaan, dll">
+            </div>
+            <div class="form-group">
+              <label for="message">Pesan</label>
+              <textarea id="message" name="message" placeholder="Tulis pesan Anda di sini..." required></textarea>
+            </div>
+            <button type="submit" class="btn-submit" id="submitBtn">
+              <span class="material-symbols-rounded">send</span>
+              Kirim Pesan
+            </button>
+          </form>
+
+          <div class="form-message" id="formMessage"></div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer class="footer">
+    <div class="container">
+      <a href="index.html" class="footer-logo">
+        <div class="logo-icon">
+          <img src="https://i.imgur.com/XuZ59qq.png" alt="TIGAN Logo">
+        </div>
+        <span>TIGAN</span>
+      </a>
+      <p class="footer-text">© 2025 TIGAN. Telur fresh langsung dari peternak.</p>
+      <div class="footer-links">
+        <a href="about.html">Tentang Kami</a>
+        <a href="privacy.html">Kebijakan Privasi</a>
+        <a href="contact.html">Kontak</a>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+
+      // ==================== SCROLL REVEAL ====================
+      var revealElements = document.querySelectorAll('.reveal');
+      var revealObserver = new IntersectionObserver(function(entries) {
+        entries.forEach(function(entry) {
+          if (entry.isIntersecting) {
+            entry.target.classList.add('visible');
+            revealObserver.unobserve(entry.target);
+          }
+        });
+      }, { threshold: 0.15, rootMargin: '0px 0px -40px 0px' });
+      revealElements.forEach(function(el) { revealObserver.observe(el); });
+
+      // ==================== FORM HANDLING ====================
+      var form = document.getElementById('contactForm');
+      var submitBtn = document.getElementById('submitBtn');
+      var formMessage = document.getElementById('formMessage');
+
+      form.addEventListener('submit', function(e) {
+        e.preventDefault();
+
+        // Disable button & tampilkan loading
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<span class="material-symbols-rounded" style="animation: spin 1s linear infinite;">progress_activity</span> Mengirim...';
+
+        // Kirim data ke Formspree
+        var formData = new FormData(form);
+
+        fetch(form.action, {
+          method: 'POST',
+          body: formData,
+          headers: {
+            'Accept': 'application/json'
+          }
+        })
+        .then(function(response) {
+          if (response.ok) {
+            // SUKSES
+            formMessage.className = 'form-message success';
+            formMessage.innerHTML = '<span class="material-symbols-rounded">check_circle</span>Pesan berhasil dikirim! Kami akan segera merespon.';
+            form.reset();
+          } else {
+            // ERROR dari Formspree
+            return response.json().then(function(data) {
+              throw new Error(data.errors ? data.errors.map(function(e) { return e.message; }).join(', ') : 'Terjadi kesalahan');
+            });
+          }
+        })
+        .catch(function(error) {
+          // ERROR jaringan atau lainnya
+          formMessage.className = 'form-message error';
+          formMessage.innerHTML = '<span class="material-symbols-rounded">error</span>' + error.message + '. Silakan coba lagi atau hubungi via WhatsApp.';
+        })
+        .finally(function() {
+          // Restore button
+          submitBtn.disabled = false;
+          submitBtn.innerHTML = '<span class="material-symbols-rounded">send</span> Kirim Pesan';
+        });
+      });
+
+    });
+  </script>
+
+  <!-- Inline spin animation untuk loading button -->
+  <style>
+    @keyframes spin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+  </style>
+</body>
+</html>
